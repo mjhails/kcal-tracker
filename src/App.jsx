@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Plus, ChevronLeft, ChevronRight, X, Search, Settings2, Trash2, Loader2, Barcode, BookOpen, LogOut } from "lucide-react";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
   auth,
   watchAuth,
@@ -736,11 +737,8 @@ export default function App() {
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState("");
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const detectIntervalRef = useRef(null);
+  const readerRef = useRef(null);
   const cameraSupported =
-    typeof window !== "undefined" &&
-    "BarcodeDetector" in window &&
     typeof navigator !== "undefined" &&
     navigator.mediaDevices &&
     typeof navigator.mediaDevices.getUserMedia === "function";
@@ -1137,13 +1135,13 @@ export default function App() {
   }
 
   function stopScan() {
-    if (detectIntervalRef.current) {
-      clearInterval(detectIntervalRef.current);
-      detectIntervalRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+    if (readerRef.current) {
+      try {
+        readerRef.current.stop();
+      } catch (e) {
+        /* already stopped */
+      }
+      readerRef.current = null;
     }
     if (videoRef.current) videoRef.current.srcObject = null;
     setScanning(false);
@@ -1156,30 +1154,23 @@ export default function App() {
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const codeReader = new BrowserMultiFormatReader();
       setScanning(true);
-      const detector = new window.BarcodeDetector({
-        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"],
-      });
-      detectIntervalRef.current = setInterval(async () => {
-        if (!videoRef.current) return;
-        try {
-          const barcodes = await detector.detect(videoRef.current);
-          if (barcodes && barcodes.length > 0) {
-            const value = barcodes[0].rawValue;
+      const controls = await codeReader.decodeFromConstraints(
+        { video: { facingMode: "environment" } },
+        videoRef.current,
+        (result) => {
+          if (result) {
+            const value = result.getText();
             stopScan();
             setBarcodeInput(value);
             lookupBarcode(value);
           }
-        } catch (e) {
-          /* detection glitch on this frame, try again next tick */
+          // decode errors on frames with no barcode are normal and ignored
         }
-      }, 350);
+      );
+      readerRef.current = controls;
     } catch (e) {
       setScanError("Couldn't access the camera — check permissions, or type the number below instead.");
       setScanning(false);
