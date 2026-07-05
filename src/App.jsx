@@ -732,6 +732,7 @@ export default function App() {
   const [recipeGrams, setRecipeGrams] = useState({});
   const [barcodeMode, setBarcodeMode] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
+  const [barcodeLoading, setBarcodeLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState("");
   const videoRef = useRef(null);
@@ -1069,23 +1070,70 @@ export default function App() {
     }
   }
 
-  function lookupBarcode(codeOverride) {
+  async function fetchOpenFoodFacts(code) {
+    try {
+      const res = await fetch(
+        `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments`
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.status !== 1 || !data.product) return null;
+      const n = data.product.nutriments || {};
+      const kcal = n["energy-kcal_100g"];
+      if (kcal === undefined) return null; // no usable nutrition data for this product
+      const name = [data.product.brands, data.product.product_name].filter(Boolean).join(" — ") || "Scanned item";
+      return {
+        name,
+        kcal: Math.round(kcal),
+        protein: n.proteins_100g ?? 0,
+        carbs: n.carbohydrates_100g ?? 0,
+        fat: n.fat_100g ?? 0,
+        sat: n["saturated-fat_100g"] ?? 0,
+        sugar: n.sugars_100g ?? 0,
+      };
+    } catch (e) {
+      return null; // offline, API down, or blocked — fall back to manual entry
+    }
+  }
+
+  async function lookupBarcode(codeOverride) {
     const code = (codeOverride || barcodeInput).trim();
     if (!code) return;
-    const match = customFoods.find((f) => f.barcode && f.barcode === code);
-    setBarcodeMode(false);
-    if (match) {
-      selectFood(match);
-    } else {
-      setCustomMode(true);
-      setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", units: "", barcode: code });
-      setAmountMode("grams");
-      setGrams(100);
-      setCount(1);
-      setUnitWeight(100);
-      setWeightUnit(meal === "drinks" ? "ml" : "g");
-    }
     setBarcodeInput("");
+
+    const match = customFoods.find((f) => f.barcode && f.barcode === code);
+    if (match) {
+      setBarcodeMode(false);
+      selectFood(match);
+      return;
+    }
+
+    setBarcodeLoading(true);
+    const found = await fetchOpenFoodFacts(code);
+    setBarcodeLoading(false);
+    setBarcodeMode(false);
+    setCustomMode(true);
+    setAmountMode("grams");
+    setGrams(100);
+    setCount(1);
+    setUnitWeight(100);
+    setWeightUnit(meal === "drinks" ? "ml" : "g");
+
+    if (found) {
+      setCustomFood({
+        name: found.name,
+        kcal: String(found.kcal),
+        protein: String(found.protein),
+        carbs: String(found.carbs),
+        fat: String(found.fat),
+        sat: String(found.sat),
+        sugar: String(found.sugar),
+        units: "",
+        barcode: code,
+      });
+    } else {
+      setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", units: "", barcode: code });
+    }
   }
 
   function stopScan() {
@@ -1638,10 +1686,11 @@ export default function App() {
                       placeholder="e.g. 5000169005806"
                       value={barcodeInput}
                       onChange={(ev) => setBarcodeInput(ev.target.value.replace(/[^0-9]/g, ""))}
-                      onKeyDown={(ev) => ev.key === "Enter" && lookupBarcode()}
+                      onKeyDown={(ev) => ev.key === "Enter" && !barcodeLoading && lookupBarcode()}
                     />
                     <p style={styles.barcodeHint}>
-                      Matches it against foods you've saved before. New barcode? You'll go straight to custom food entry — save it once and it's remembered.
+                      Checks foods you've saved before, then a live product database if it's new. Nothing found? You'll
+                      land in custom food entry to fill it in yourself.
                     </p>
                     <div style={styles.sheetActions}>
                       <button
@@ -1651,11 +1700,16 @@ export default function App() {
                           setBarcodeInput("");
                           setScanError("");
                         }}
+                        disabled={barcodeLoading}
                       >
                         Cancel
                       </button>
-                      <button style={styles.primaryBtn} onClick={() => lookupBarcode()}>
-                        Look up
+                      <button
+                        style={{ ...styles.primaryBtn, ...(barcodeLoading ? { opacity: 0.6 } : {}) }}
+                        onClick={() => lookupBarcode()}
+                        disabled={barcodeLoading}
+                      >
+                        {barcodeLoading ? "Looking up…" : "Look up"}
                       </button>
                     </div>
                   </div>
@@ -1919,7 +1973,11 @@ export default function App() {
                 {customFood.barcode && (
                   <div style={styles.barcodeBanner}>
                     <Barcode size={14} color="var(--sage-deep)" />
-                    <span>New barcode {customFood.barcode} — fill this in once and it's saved for next time.</span>
+                    <span>
+                      {customFood.kcal
+                        ? `Found it! Check the numbers below, then save — barcode ${customFood.barcode} is remembered from now on.`
+                        : `Couldn't find barcode ${customFood.barcode} online — fill it in once and it's saved for next time.`}
+                    </span>
                   </div>
                 )}
                 <input
