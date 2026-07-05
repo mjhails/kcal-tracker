@@ -1389,34 +1389,6 @@ export default function App() {
           <p style={styles.drinksCaption}>{weeklyKcalTone(weeklyKcal, targets.kcal * 7).msg}</p>
         </div>
 
-        {/* Activity — manual for now, folds into today's budget like a fitness watch would */}
-        <div style={styles.waterCard}>
-          <div style={styles.waterTop}>
-            <span style={styles.sectionLabel}>ACTIVITY</span>
-            <span style={styles.waterReading}>
-              {activity}
-              <span style={styles.macroUnit}> kcal earned</span>
-            </span>
-          </div>
-          <div style={styles.waterBtnRow}>
-            <button style={styles.waterBtn} onClick={() => saveActivity(activity - 100)}>
-              − 100
-            </button>
-            <button style={styles.waterBtn} onClick={() => saveActivity(activity + 100)}>
-              + 100
-            </button>
-            <button style={styles.waterBtn} onClick={() => saveActivity(activity + 250)}>
-              + 250
-            </button>
-            <button style={styles.waterBtn} onClick={() => saveActivity(activity + 500)}>
-              + 500
-            </button>
-          </div>
-          <p style={styles.drinksCaption}>
-            Log a walk, gym session, or watch reading — it adds to today's budget, same idea as a fitness watch's move ring.
-          </p>
-        </div>
-
         {/* Water */}
         <div style={styles.waterCard}>
           <div style={styles.waterTop}>
