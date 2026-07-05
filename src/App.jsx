@@ -17,8 +17,8 @@ import AuthScreen from "./AuthScreen.jsx";
 // ---------- Local UK-style food reference (CoFID-flavoured, per 100g) ----------
 const FOOD_DB = [
   { name: "Baked beans, in tomato sauce", kcal: 75, protein: 4.8, carbs: 13, fat: 0.4, sat: 0.1, sugar: 5.3 },
-  { name: "Wholemeal bread", kcal: 215, protein: 9.4, carbs: 39.7, fat: 2.5, sat: 0.5, sugar: 3.3 },
-  { name: "White bread", kcal: 235, protein: 8.4, carbs: 46.1, fat: 1.6, sat: 0.3, sugar: 3.4 },
+  { name: "Wholemeal bread", kcal: 215, protein: 9.4, carbs: 39.7, fat: 2.5, sat: 0.5, sugar: 3.3, unit: { grams: 40, label: "slice" } },
+  { name: "White bread", kcal: 235, protein: 8.4, carbs: 46.1, fat: 1.6, sat: 0.3, sugar: 3.4, unit: { grams: 36, label: "slice" } },
   { name: "Chicken breast, grilled", kcal: 165, protein: 31, carbs: 0, fat: 3.6, sat: 1, sugar: 0 },
   { name: "Basmati rice, boiled", kcal: 130, protein: 2.7, carbs: 28, fat: 0.3, sat: 0.1, sugar: 0.1 },
   { name: "Basmati rice, dried (uncooked)", kcal: 349, protein: 7.9, carbs: 79.1, fat: 1.4, sat: 0.3, sugar: 0.1 },
@@ -47,12 +47,12 @@ const FOOD_DB = [
   { name: "Apple", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 100, label: "apple" } },
   { name: "Banana", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" } },
   // Drinks — kcal/units given per single standard serving (grams:100 = 1 serving)
-  { name: "Real ale, pint (~4.2% ABV)", kcal: 180, protein: 0, carbs: 14, fat: 0, sat: 0, sugar: 0, units: 2.4, unit: { grams: 100, label: "pint" } },
-  { name: "Lager, pint (~4% ABV)", kcal: 215, protein: 0, carbs: 12, fat: 0, sat: 0, sugar: 0, units: 2.3, unit: { grams: 100, label: "pint" } },
-  { name: "Cider, pint (~4.5% ABV)", kcal: 216, protein: 0, carbs: 22, fat: 0, sat: 0, sugar: 21, units: 2.6, unit: { grams: 100, label: "pint" } },
-  { name: "Red or white wine, glass (175ml, 13%)", kcal: 159, protein: 0, carbs: 4.4, fat: 0, sat: 0, sugar: 1.4, units: 2.3, unit: { grams: 100, label: "glass" } },
-  { name: "Prosecco, glass (125ml, 12%)", kcal: 89, protein: 0, carbs: 2.5, fat: 0, sat: 0, sugar: 1, units: 1.5, unit: { grams: 100, label: "glass" } },
-  { name: "Spirit & mixer, single (25ml, 40%)", kcal: 95, protein: 0, carbs: 8, fat: 0, sat: 0, sugar: 8, units: 1, unit: { grams: 100, label: "single" } },
+  { name: "Real ale, pint (~4.2% ABV)", kcal: 32, protein: 0, carbs: 2.5, fat: 0, sat: 0, sugar: 0, units: 0.42, unit: { grams: 568, label: "pint" } },
+  { name: "Lager, pint (~4% ABV)", kcal: 38, protein: 0, carbs: 2.1, fat: 0, sat: 0, sugar: 0, units: 0.41, unit: { grams: 568, label: "pint" } },
+  { name: "Cider, pint (~4.5% ABV)", kcal: 38, protein: 0, carbs: 3.9, fat: 0, sat: 0, sugar: 3.7, units: 0.46, unit: { grams: 568, label: "pint" } },
+  { name: "Red or white wine, glass (175ml, 13%)", kcal: 91, protein: 0, carbs: 2.5, fat: 0, sat: 0, sugar: 0.8, units: 1.31, unit: { grams: 175, label: "glass" } },
+  { name: "Prosecco, glass (125ml, 12%)", kcal: 71, protein: 0, carbs: 2, fat: 0, sat: 0, sugar: 0.8, units: 1.2, unit: { grams: 125, label: "glass" } },
+  { name: "Spirit & mixer, single (25ml spirit + mixer, 40%)", kcal: 54, protein: 0, carbs: 4.6, fat: 0, sat: 0, sugar: 4.6, units: 0.57, unit: { grams: 175, label: "single with mixer" } },
   // Aldi own-brand (typical values — check the pack, exact figures vary by product/pack size)
   { name: "Aldi Four Seasons Cheese & Tomato Pizza", kcal: 250, protein: 10, carbs: 28, fat: 10, sat: 5, sugar: 3 },
   { name: "Aldi Specially Selected Chicken Tikka Masala (ready meal)", kcal: 140, protein: 8, carbs: 16, fat: 4.5, sat: 1.2, sugar: 3 },
@@ -72,8 +72,8 @@ const FOOD_DB = [
   // Aldi own-brand, batch 2 — real sub-brand names confirmed via product listings/reviews.
   // Brooklea, Village Bakery and Ashfields figures are sourced from published pack data; the rest are typical estimates for the product type.
   { name: "Aldi Brooklea 0% Fat Greek Yogurt", kcal: 62, protein: 5.9, carbs: 9.1, fat: 0.2, sat: 0.1, sugar: 7.7 },
-  { name: "Aldi Village Bakery Wholemeal Bread (slice)", kcal: 69, protein: 3, carbs: 13, fat: 0.9, sat: 0.2, sugar: 1, unit: { grams: 100, label: "slice" } },
-  { name: "Aldi Village Bakery Wholemeal Roll", kcal: 148, protein: 7, carbs: 28, fat: 1.8, sat: 0.4, sugar: 2, unit: { grams: 100, label: "roll" } },
+  { name: "Aldi Village Bakery Wholemeal Bread (slice)", kcal: 215, protein: 9.4, carbs: 39.7, fat: 2.5, sat: 0.5, sugar: 3.3, unit: { grams: 40, label: "slice" } },
+  { name: "Aldi Village Bakery Wholemeal Roll", kcal: 247, protein: 11.7, carbs: 46.7, fat: 3, sat: 0.7, sugar: 3.3, unit: { grams: 60, label: "roll" } },
   { name: "Aldi Ashfields Extra Lean Beef Mince (5% fat)", kcal: 109, protein: 22, carbs: 0, fat: 2.4, sat: 1, sugar: 0 },
   { name: "Aldi Ashfield Farm Wafer Thin Roast Chicken", kcal: 105, protein: 22, carbs: 1, fat: 1.5, sat: 0.4, sugar: 1 },
   { name: "Aldi The Deli Classic Frankfurters", kcal: 260, protein: 11, carbs: 3, fat: 23, sat: 8, sugar: 1, unit: { grams: 35, label: "frankfurter" } },
@@ -84,13 +84,13 @@ const FOOD_DB = [
   // ---- More bakery & bread ----
   { name: "Baguette", kcal: 262, protein: 9, carbs: 52, fat: 1.7, sat: 0.3, sugar: 2, unit: { grams: 125, label: "half baguette" } },
   { name: "Ciabatta roll", kcal: 271, protein: 9.5, carbs: 51, fat: 3, sat: 0.5, sugar: 2, unit: { grams: 100, label: "roll" } },
-  { name: "Sourdough bread", kcal: 289, protein: 11.4, carbs: 56.9, fat: 1.9, sat: 0.3, sugar: 2.5 },
-  { name: "Rye bread", kcal: 219, protein: 7.6, carbs: 44.7, fat: 1.1, sat: 0.2, sugar: 2.9 },
+  { name: "Sourdough bread", kcal: 289, protein: 11.4, carbs: 56.9, fat: 1.9, sat: 0.3, sugar: 2.5, unit: { grams: 50, label: "slice" } },
+  { name: "Rye bread", kcal: 219, protein: 7.6, carbs: 44.7, fat: 1.1, sat: 0.2, sugar: 2.9, unit: { grams: 30, label: "slice" } },
   { name: "Brioche roll", kcal: 372, protein: 9, carbs: 50, fat: 15, sat: 7, sugar: 9, unit: { grams: 60, label: "roll" } },
   { name: "Hot cross bun", kcal: 296, protein: 7.6, carbs: 55, fat: 5.6, sat: 1.7, sugar: 21, unit: { grams: 70, label: "bun" } },
   { name: "Teacake", kcal: 280, protein: 7.9, carbs: 54, fat: 4.6, sat: 1, sugar: 15, unit: { grams: 65, label: "teacake" } },
   { name: "Malt loaf", kcal: 283, protein: 8, carbs: 60, fat: 2, sat: 0.5, sugar: 26, unit: { grams: 40, label: "slice" } },
-  { name: "Garlic bread", kcal: 350, protein: 7.7, carbs: 42, fat: 17, sat: 6, sugar: 2 },
+  { name: "Garlic bread", kcal: 350, protein: 7.7, carbs: 42, fat: 17, sat: 6, sugar: 2, unit: { grams: 60, label: "portion (2-3 slices)" } },
   { name: "Yorkshire pudding", kcal: 227, protein: 7, carbs: 27, fat: 10, sat: 2.6, sugar: 1.5, unit: { grams: 35, label: "pudding" } },
   { name: "Breadsticks", kcal: 408, protein: 12, carbs: 73, fat: 8, sat: 1.2, sugar: 3, unit: { grams: 8, label: "breadstick" } },
   // ---- British classics & savoury pastry ----
@@ -165,7 +165,7 @@ const FOOD_DB = [
   { name: "Aldi Bramwells Wholegrain Mustard", kcal: 140, protein: 7.4, carbs: 8, fat: 8, sat: 0.6, sugar: 3 },
   { name: "Aldi Bramwells Tomato Ketchup", kcal: 100, protein: 1.4, carbs: 24.6, fat: 0.1, sat: 0, sugar: 22.8 },
   { name: "Aldi Bramwells Cornflakes", kcal: 378, protein: 7, carbs: 84, fat: 0.9, sat: 0.2, sugar: 8 },
-  { name: "Aldi Village Bakery White Bloomer", kcal: 235, protein: 8.4, carbs: 46, fat: 1.6, sat: 0.3, sugar: 3.4 },
+  { name: "Aldi Village Bakery White Bloomer", kcal: 235, protein: 8.4, carbs: 46, fat: 1.6, sat: 0.3, sugar: 3.4, unit: { grams: 45, label: "slice" } },
   { name: "Aldi Village Bakery Bagels", kcal: 275, protein: 10.5, carbs: 54, fat: 1.7, sat: 0.3, sugar: 5.5, unit: { grams: 90, label: "bagel" } },
   { name: "Aldi Ashfields Pork Sausages", kcal: 279, protein: 13.7, carbs: 11.7, fat: 21.1, sat: 7.3, sugar: 1, unit: { grams: 50, label: "sausage" } },
   { name: "Aldi Ashfield Farm Chicken Thighs, grilled", kcal: 185, protein: 25.4, carbs: 0, fat: 9.2, sat: 2.6, sugar: 0 },
@@ -197,9 +197,9 @@ const FOOD_DB = [
   { name: "Lurpak Butter", kcal: 745, protein: 0.5, carbs: 0.5, fat: 82, sat: 54, sugar: 0.5 },
   { name: "Flora Original Spread", kcal: 530, protein: 0.2, carbs: 1, fat: 59, sat: 15, sugar: 1 },
   { name: "Nutella", kcal: 539, protein: 6.3, carbs: 57.5, fat: 30.9, sat: 10.6, sugar: 56.3 },
-  { name: "Warburtons Toastie White Bread", kcal: 253, protein: 8.9, carbs: 47.1, fat: 2.5, sat: 0.6, sugar: 3.6 },
-  { name: "Kingsmill 50/50 Bread", kcal: 219, protein: 9.6, carbs: 39, fat: 2.5, sat: 0.5, sugar: 3 },
-  { name: "Hovis Wholemeal Bread", kcal: 215, protein: 9.9, carbs: 38, fat: 2.5, sat: 0.5, sugar: 2.8 },
+  { name: "Warburtons Toastie White Bread", kcal: 253, protein: 8.9, carbs: 47.1, fat: 2.5, sat: 0.6, sugar: 3.6, unit: { grams: 39, label: "slice" } },
+  { name: "Kingsmill 50/50 Bread", kcal: 219, protein: 9.6, carbs: 39, fat: 2.5, sat: 0.5, sugar: 3, unit: { grams: 38, label: "slice" } },
+  { name: "Hovis Wholemeal Bread", kcal: 215, protein: 9.9, carbs: 38, fat: 2.5, sat: 0.5, sugar: 2.8, unit: { grams: 40, label: "slice" } },
   { name: "Kellogg's Corn Flakes", kcal: 378, protein: 7, carbs: 84, fat: 0.9, sat: 0.2, sugar: 8 },
   { name: "Kellogg's Coco Pops", kcal: 384, protein: 4.5, carbs: 85, fat: 2.5, sat: 1.5, sugar: 30 },
   { name: "Robinsons Squash, diluted", kcal: 5, protein: 0, carbs: 1.2, fat: 0, sat: 0, sugar: 1.2 },
@@ -220,6 +220,29 @@ const FOOD_DB = [
   { name: "Pink Lady Apple", kcal: 52, protein: 0.3, carbs: 12.8, fat: 0.2, sat: 0, sugar: 12.4, unit: { grams: 100, label: "apple" } },
   { name: "Gala Apple", kcal: 48, protein: 0.3, carbs: 11.6, fat: 0.1, sat: 0, sugar: 11.4, unit: { grams: 100, label: "apple" } },
   { name: "Granny Smith Apple", kcal: 44, protein: 0.3, carbs: 10.5, fat: 0.2, sat: 0, sugar: 9.8, unit: { grams: 100, label: "apple" } },
+  // ---- More: plant milks, protein bars, meat cuts, veg, sandwich fillings, world food ----
+  { name: "Oatly Oat Milk (Original)", kcal: 47, protein: 1, carbs: 6.7, fat: 1.5, sat: 0.2, sugar: 4.1 },
+  { name: "Alpro Almond Milk (Unsweetened)", kcal: 13, protein: 0.4, carbs: 0.3, fat: 1.1, sat: 0.1, sugar: 0.1 },
+  { name: "Soya milk, sweetened", kcal: 43, protein: 3.3, carbs: 2.9, fat: 2.1, sat: 0.3, sugar: 2.9 },
+  { name: "Grenade Carb Killa Protein Bar", kcal: 393, protein: 27, carbs: 34, fat: 15, sat: 9, sugar: 3, unit: { grams: 60, label: "bar" } },
+  { name: "Quest Protein Bar", kcal: 350, protein: 33, carbs: 26, fat: 12, sat: 5, sugar: 1, unit: { grams: 60, label: "bar" } },
+  { name: "Granola bar", kcal: 471, protein: 7, carbs: 64, fat: 20, sat: 8, sugar: 27, unit: { grams: 21, label: "bar" } },
+  { name: "Pork loin steak, grilled", kcal: 184, protein: 31.5, carbs: 0, fat: 6.5, sat: 2.2, sugar: 0 },
+  { name: "Lamb chops, grilled", kcal: 226, protein: 27, carbs: 0, fat: 13, sat: 5.8, sugar: 0, unit: { grams: 80, label: "chop" } },
+  { name: "Beef mince, 20% fat, cooked", kcal: 250, protein: 24, carbs: 0, fat: 17, sat: 7.3, sugar: 0 },
+  { name: "Pain au chocolat", kcal: 414, protein: 7.5, carbs: 41, fat: 24, sat: 14, sugar: 12, unit: { grams: 70, label: "pastry" } },
+  { name: "Mushrooms, fried in butter", kcal: 157, protein: 2.4, carbs: 0.4, fat: 16.2, sat: 8, sugar: 0.4 },
+  { name: "Cauliflower rice, cooked", kcal: 25, protein: 2, carbs: 3, fat: 0.6, sat: 0.1, sugar: 2.4 },
+  { name: "Butternut squash soup", kcal: 48, protein: 1, carbs: 8, fat: 1.3, sat: 0.2, sugar: 4 },
+  { name: "Tuna mayo (sandwich filling)", kcal: 190, protein: 17, carbs: 1, fat: 13, sat: 1.8, sugar: 1 },
+  { name: "Egg mayo (sandwich filling)", kcal: 240, protein: 9, carbs: 1, fat: 22, sat: 3.5, sugar: 1 },
+  { name: "Coronation chicken (sandwich filling)", kcal: 210, protein: 14, carbs: 6, fat: 15, sat: 2, sugar: 4 },
+  { name: "Falafel", kcal: 333, protein: 13.3, carbs: 31.8, fat: 17.8, sat: 2.4, sugar: 3.6, unit: { grams: 17, label: "ball" } },
+  { name: "Halloumi, grilled", kcal: 321, protein: 21.7, carbs: 2, fat: 25, sat: 17, sugar: 1 },
+  { name: "Weetabix Protein", kcal: 358, protein: 16, carbs: 55, fat: 6.5, sat: 1.2, sugar: 4, unit: { grams: 24, label: "biscuit" } },
+  { name: "Garlic naan bread", kcal: 310, protein: 8.5, carbs: 47, fat: 10, sat: 3.8, sugar: 4, unit: { grams: 140, label: "naan" } },
+  { name: "Chicken shish kebab (grilled, no bread)", kcal: 172, protein: 25, carbs: 2, fat: 7, sat: 1.8, sugar: 1 },
+  { name: "Tzatziki", kcal: 85, protein: 3.8, carbs: 3.5, fat: 6.5, sat: 4, sugar: 3.3 },
   { name: "Conference Pear", kcal: 42, protein: 0.3, carbs: 10.6, fat: 0.1, sat: 0, sugar: 10.6, unit: { grams: 170, label: "pear" } },
   { name: "Chiquita Banana", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" } },
   { name: "Del Monte Pineapple Chunks in Juice", kcal: 55, protein: 0.5, carbs: 13.5, fat: 0.1, sat: 0, sugar: 13 },
@@ -1135,47 +1158,70 @@ export default function App() {
   }
 
   function stopScan() {
-    if (readerRef.current) {
-      try {
-        readerRef.current.stop();
-      } catch (e) {
-        /* already stopped */
-      }
-      readerRef.current = null;
-    }
-    if (videoRef.current) videoRef.current.srcObject = null;
     setScanning(false);
   }
 
-  async function startScan() {
+  function startScan() {
     setScanError("");
     if (!cameraSupported) {
       setScanError("Camera scanning isn't supported in this browser — type the number below instead.");
       return;
     }
-    try {
-      const { BrowserMultiFormatReader } = await import("@zxing/browser");
-      const codeReader = new BrowserMultiFormatReader();
-      setScanning(true);
-      const controls = await codeReader.decodeFromConstraints(
-        { video: { facingMode: "environment" } },
-        videoRef.current,
-        (result) => {
-          if (result) {
-            const value = result.getText();
-            stopScan();
-            setBarcodeInput(value);
-            lookupBarcode(value);
-          }
-          // decode errors on frames with no barcode are normal and ignored
-        }
-      );
-      readerRef.current = controls;
-    } catch (e) {
-      setScanError("Couldn't access the camera — check permissions, or type the number below instead.");
-      setScanning(false);
-    }
+    setScanning(true);
   }
+
+  // Runs only after React has actually mounted the <video> element for `scanning === true` —
+  // starting the camera any earlier (e.g. right after setScanning(true)) targets a video
+  // element that doesn't exist in the DOM yet, which is why the feed used to show black.
+  useEffect(() => {
+    if (!scanning) return;
+    let cancelled = false;
+    let controlsLocal = null;
+
+    (async () => {
+      try {
+        const { BrowserMultiFormatReader } = await import("@zxing/browser");
+        const codeReader = new BrowserMultiFormatReader();
+        const controls = await codeReader.decodeFromConstraints(
+          { video: { facingMode: "environment" } },
+          videoRef.current,
+          (result) => {
+            if (result && !cancelled) {
+              const value = result.getText();
+              setScanning(false);
+              setBarcodeInput(value);
+              lookupBarcode(value);
+            }
+            // decode errors on frames with no barcode are normal and ignored
+          }
+        );
+        if (cancelled) {
+          controls.stop();
+          return;
+        }
+        controlsLocal = controls;
+        readerRef.current = controls;
+      } catch (e) {
+        if (!cancelled) {
+          setScanError("Couldn't access the camera — check permissions, or type the number below instead.");
+          setScanning(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (controlsLocal) {
+        try {
+          controlsLocal.stop();
+        } catch (e) {
+          /* already stopped */
+        }
+      }
+      readerRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, [scanning]);
 
   useEffect(() => {
     if (!barcodeMode) stopScan();
