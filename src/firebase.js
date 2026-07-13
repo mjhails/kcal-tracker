@@ -24,9 +24,8 @@ import {
   signOut,
   updateProfile,
 } from "firebase/auth";
-import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentSingleTabManager, doc, getDoc, setDoc } from "firebase/firestore";
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCPpBWC7Nz-a7QiIA6iHGCrgKjiEKu88Ng",
   authDomain: "kcal-tracker-1adb3.firebaseapp.com",
@@ -36,10 +35,13 @@ const firebaseConfig = {
   appId: "1:268027025012:web:e2be0adca398d0d96ca321"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// Persistent local cache: lets you view (and even edit — synced once back online)
+// your log without a signal, since data is cached on-device automatically.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }),
+});
 
 // ---- Auth helpers ----
 export function signUp(email, password, displayName) {

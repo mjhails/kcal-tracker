@@ -14,6 +14,16 @@ import {
 } from "./firebase.js";
 import AuthScreen from "./AuthScreen.jsx";
 
+// ---------------------------------------------------------------------------
+// USDA FOOD DATA CENTRAL (second barcode lookup source)
+// ---------------------------------------------------------------------------
+// 1. Go to https://fdc.nal.usda.gov/api-key-signup — fill in name + email, free.
+// 2. You'll get a key (on screen and/or by email). Paste it below, replacing
+//    the placeholder. If you leave the placeholder in place, this lookup is
+//    simply skipped — Open Food Facts still works fine on its own.
+// ---------------------------------------------------------------------------
+const USDA_API_KEY = "YOUR_USDA_API_KEY";
+
 // ---------- Local UK-style food reference (CoFID-flavoured, per 100g) ----------
 const FOOD_DB = [
   { name: "Baked beans, in tomato sauce", kcal: 75, protein: 4.8, carbs: 13, fat: 0.4, sat: 0.1, sugar: 5.3, unit: { grams: 200, label: "half tin" } },
@@ -240,6 +250,12 @@ const FOOD_DB = [
   { name: "Falafel", kcal: 333, protein: 13.3, carbs: 31.8, fat: 17.8, sat: 2.4, sugar: 3.6, unit: { grams: 17, label: "ball" } },
   { name: "Halloumi, grilled", kcal: 321, protein: 21.7, carbs: 2, fat: 25, sat: 17, sugar: 1, unit: { grams: 100, label: "portion" } },
   { name: "Weetabix Protein", kcal: 358, protein: 16, carbs: 55, fat: 6.5, sat: 1.2, sugar: 4, unit: { grams: 24, label: "biscuit" } },
+  // ---- Myprotein — figures from Myprotein's own product pages (scoop/bar totals), converted to per-100g ----
+  { name: "Myprotein Impact Whey Protein (Unflavoured)", kcal: 456, protein: 84, carbs: 7.2, fat: 7.6, sat: 3.5, sugar: 1.5, unit: { grams: 25, label: "scoop" } },
+  { name: "Myprotein Clear Whey Isolate", kcal: 360, protein: 80, carbs: 8, fat: 0, sat: 0, sugar: 0, unit: { grams: 25, label: "scoop" } },
+  { name: "Myprotein Impact Vegan Protein", kcal: 390, protein: 80, carbs: 10, fat: 6, sat: 1, sugar: 3, unit: { grams: 30, label: "scoop" } },
+  { name: "Myprotein Layered Protein Bar", kcal: 383, protein: 33.3, carbs: 32, fat: 15.7, sat: 4, sugar: 4, unit: { grams: 60, label: "bar" } },
+  { name: "Myprotein Oat Protein Flapjack", kcal: 405, protein: 25, carbs: 40, fat: 13.8, sat: 6.9, sugar: 25, unit: { grams: 80, label: "bar" } },
   { name: "Garlic naan bread", kcal: 310, protein: 8.5, carbs: 47, fat: 10, sat: 3.8, sugar: 4, unit: { grams: 140, label: "naan" } },
   { name: "Chicken shish kebab (grilled, no bread)", kcal: 172, protein: 25, carbs: 2, fat: 7, sat: 1.8, sugar: 1, unit: { grams: 150, label: "skewer" } },
   { name: "Tzatziki", kcal: 85, protein: 3.8, carbs: 3.5, fat: 6.5, sat: 4, sugar: 3.3, unit: { grams: 30, label: "2 tbsp" } },
@@ -1094,26 +1110,93 @@ export default function App() {
   async function fetchOpenFoodFacts(code) {
     try {
       const res = await fetch(
-        `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments`
+        `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments,serving_quantity,serving_size`
       );
       if (!res.ok) return null;
       const data = await res.json();
       if (data.status !== 1 || !data.product) return null;
       const n = data.product.nutriments || {};
-      const kcal = n["energy-kcal_100g"];
-      if (kcal === undefined) return null; // no usable nutrition data for this product
       const name = [data.product.brands, data.product.product_name].filter(Boolean).join(" — ") || "Scanned item";
+
+      // Prefer proper per-100g/ml figures when the database has them
+      let kcal = n["energy-kcal_100g"];
+      let protein = n.proteins_100g;
+      let carbs = n.carbohydrates_100g;
+      let fat = n.fat_100g;
+      let sat = n["saturated-fat_100g"];
+      let sugar = n.sugars_100g;
+
+      // Fall back to per-serving figures and compute our own per-100g conversion —
+      // common for small servings (sauces, spices) where the database has the label
+      // numbers but the serving is too small for it to auto-compute a per-100g value.
+      if (kcal === undefined && n["energy-kcal_serving"] !== undefined) {
+        const servingGrams = parseFloat(data.product.serving_quantity) || null;
+        if (servingGrams && servingGrams > 0) {
+          const scale = 100 / servingGrams;
+          kcal = n["energy-kcal_serving"] * scale;
+          protein = (n.proteins_serving ?? 0) * scale;
+          carbs = (n.carbohydrates_serving ?? 0) * scale;
+          fat = (n.fat_serving ?? 0) * scale;
+          sat = (n["saturated-fat_serving"] ?? 0) * scale;
+          sugar = (n.sugars_serving ?? 0) * scale;
+        }
+      }
+
+      if (kcal === undefined || kcal === null) return null; // still nothing usable
+
       return {
         name,
         kcal: Math.round(kcal),
-        protein: n.proteins_100g ?? 0,
-        carbs: n.carbohydrates_100g ?? 0,
-        fat: n.fat_100g ?? 0,
-        sat: n["saturated-fat_100g"] ?? 0,
-        sugar: n.sugars_100g ?? 0,
+        protein: Math.round((protein ?? 0) * 10) / 10,
+        carbs: Math.round((carbs ?? 0) * 10) / 10,
+        fat: Math.round((fat ?? 0) * 10) / 10,
+        sat: Math.round((sat ?? 0) * 10) / 10,
+        sugar: Math.round((sugar ?? 0) * 10) / 10,
       };
     } catch (e) {
       return null; // offline, API down, or blocked — fall back to manual entry
+    }
+  }
+
+  async function fetchUSDA(code) {
+    if (!USDA_API_KEY || USDA_API_KEY === "YOUR_USDA_API_KEY") return null; // key not set up yet
+    try {
+      const res = await fetch(
+        `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_API_KEY}&query=${encodeURIComponent(
+          code
+        )}&dataType=Branded&pageSize=5`
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      const foods = data.foods || [];
+      if (foods.length === 0) return null;
+
+      // Prefer an exact barcode match; otherwise fall back to the top search result
+      const stripLeadingZeros = (s) => (s || "").replace(/^0+/, "");
+      const match =
+        foods.find((f) => stripLeadingZeros(f.gtinUpc) === stripLeadingZeros(code)) || foods[0];
+
+      const nutrients = match.foodNutrients || [];
+      const findNutrient = (name) => {
+        const n = nutrients.find((x) => x.nutrientName === name);
+        return n ? n.value : undefined;
+      };
+
+      const kcal = findNutrient("Energy");
+      if (kcal === undefined) return null;
+
+      const name = [match.brandOwner, match.description].filter(Boolean).join(" — ") || "Scanned item";
+      return {
+        name,
+        kcal: Math.round(kcal),
+        protein: findNutrient("Protein") ?? 0,
+        carbs: findNutrient("Carbohydrate, by difference") ?? 0,
+        fat: findNutrient("Total lipid (fat)") ?? 0,
+        sat: findNutrient("Fatty acids, total saturated") ?? 0,
+        sugar: findNutrient("Sugars, total including NLEA") ?? findNutrient("Sugars, total") ?? 0,
+      };
+    } catch (e) {
+      return null; // offline, API down, key not set up, or rate-limited
     }
   }
 
@@ -1130,7 +1213,7 @@ export default function App() {
     }
 
     setBarcodeLoading(true);
-    const found = await fetchOpenFoodFacts(code);
+    const found = (await fetchOpenFoodFacts(code)) || (await fetchUSDA(code));
     setBarcodeLoading(false);
     setBarcodeMode(false);
     setCustomMode(true);
@@ -1740,8 +1823,8 @@ export default function App() {
                       onKeyDown={(ev) => ev.key === "Enter" && !barcodeLoading && lookupBarcode()}
                     />
                     <p style={styles.barcodeHint}>
-                      Checks foods you've saved before, then a live product database if it's new. Nothing found? You'll
-                      land in custom food entry to fill it in yourself.
+                      Checks foods you've saved before, then two live product databases if it's new. Still nothing?
+                      You'll land in custom food entry to fill it in yourself.
                     </p>
                     <div style={styles.sheetActions}>
                       <button
