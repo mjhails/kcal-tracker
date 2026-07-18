@@ -24,8 +24,9 @@ import {
   signOut,
   updateProfile,
 } from "firebase/auth";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentSingleTabManager, doc, getDoc, setDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 
+// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCPpBWC7Nz-a7QiIA6iHGCrgKjiEKu88Ng",
   authDomain: "kcal-tracker-1adb3.firebaseapp.com",
@@ -35,13 +36,10 @@ const firebaseConfig = {
   appId: "1:268027025012:web:e2be0adca398d0d96ca321"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-// Persistent local cache: lets you view (and even edit — synced once back online)
-// your log without a signal, since data is cached on-device automatically.
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }),
-});
+export const db = getFirestore(app);
 
 // ---- Auth helpers ----
 export function signUp(email, password, displayName) {
@@ -70,6 +68,29 @@ export async function getUserTargets(uid) {
 }
 export async function setUserTargets(uid, targets) {
   await setDoc(doc(db, "users", uid), { targets }, { merge: true });
+}
+
+// ---- Weight log (private to each signed-in user) ----
+export async function getWeightLog(uid) {
+  const snap = await getDoc(doc(db, "users", uid));
+  return snap.exists() && snap.data().weights ? snap.data().weights : [];
+}
+export async function setWeightLog(uid, weights) {
+  await setDoc(doc(db, "users", uid), { weights }, { merge: true });
+}
+
+// ---- Push notification setup (reminder time + subscription, private per user) ----
+export async function getReminderSettings(uid) {
+  const snap = await getDoc(doc(db, "users", uid));
+  if (!snap.exists()) return { reminderTime: "", pushSubscription: null };
+  const d = snap.data();
+  return { reminderTime: d.reminderTime || "", pushSubscription: d.pushSubscription || null };
+}
+export async function setReminderTime(uid, time) {
+  await setDoc(doc(db, "users", uid), { reminderTime: time }, { merge: true });
+}
+export async function setPushSubscription(uid, subscription) {
+  await setDoc(doc(db, "users", uid), { pushSubscription: subscription }, { merge: true });
 }
 
 export async function getDay(uid, date) {
