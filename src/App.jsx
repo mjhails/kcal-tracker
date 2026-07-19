@@ -1,5 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Plus, ChevronLeft, ChevronRight, X, Search, Settings2, Trash2, Loader2, Barcode, BookOpen, LogOut } from "lucide-react";
+import {
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Search,
+  Settings2,
+  Trash2,
+  Loader2,
+  Barcode,
+  BookOpen,
+  LogOut,
+  Flashlight,
+  FlashlightOff,
+} from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
   auth,
@@ -20,12 +34,15 @@ import AuthScreen from "./AuthScreen.jsx";
 // ---------------------------------------------------------------------------
 // USDA FOOD DATA CENTRAL (second barcode lookup source)
 // ---------------------------------------------------------------------------
+// Ships using the public shared "DEMO_KEY", which works with no signup — but
+// it's capped at just 10 requests/hour (shared with everyone else on your
+// network using it), so it'll run out fast on a real shopping trip. Get your
+// own free key for a 1,000/hour limit instead:
 // 1. Go to https://fdc.nal.usda.gov/api-key-signup — fill in name + email, free.
 // 2. You'll get a key (on screen and/or by email). Paste it below, replacing
-//    the placeholder. If you leave the placeholder in place, this lookup is
-//    simply skipped — Open Food Facts still works fine on its own.
+//    DEMO_KEY.
 // ---------------------------------------------------------------------------
-const USDA_API_KEY = "YOUR_USDA_API_KEY";
+const USDA_API_KEY = "DEMO_KEY";
 
 // ---------------------------------------------------------------------------
 // DAILY REMINDER PUSH NOTIFICATIONS
@@ -805,6 +822,9 @@ export default function App() {
   const [reminderBusy, setReminderBusy] = useState(false);
   const videoRef = useRef(null);
   const readerRef = useRef(null);
+  const trackRef = useRef(null);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
   const cameraSupported =
     typeof navigator !== "undefined" &&
     navigator.mediaDevices &&
@@ -1265,7 +1285,7 @@ export default function App() {
   }
 
   async function fetchUSDA(code) {
-    if (!USDA_API_KEY || USDA_API_KEY === "YOUR_USDA_API_KEY") return null; // key not set up yet
+    if (!USDA_API_KEY) return null; // key cleared out — lookup simply skipped
     try {
       const res = await fetch(
         `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_API_KEY}&query=${encodeURIComponent(
@@ -1359,6 +1379,17 @@ export default function App() {
     setScanning(true);
   }
 
+  async function toggleTorch() {
+    const track = trackRef.current;
+    if (!track) return;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
+      setTorchOn(!torchOn);
+    } catch (e) {
+      // Some browsers report torch support but reject the constraint anyway — ignore.
+    }
+  }
+
   // Runs only after React has actually mounted the <video> element for `scanning === true`.
   // We handle getUserMedia + play() ourselves (the same proven pattern that turns on the
   // camera), and only hand the *already playing* video to the scanning library — this
@@ -1371,21 +1402,52 @@ export default function App() {
 
     (async () => {
       try {
+        // Ask for a decent resolution and continuous autofocus — low-res, unfocused
+        // frames are the biggest reason a real barcode fails to decode. Both go in
+        // `ideal`/`advanced` so unsupported cameras just ignore them instead of failing.
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            advanced: [{ focusMode: "continuous" }],
+          },
         });
         if (cancelled || !videoRef.current) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
+        const track = stream.getVideoTracks()[0];
+        trackRef.current = track;
+        setTorchSupported(!!(track && track.getCapabilities && track.getCapabilities().torch));
+
         const video = videoRef.current;
         video.srcObject = stream;
         video.setAttribute("playsinline", "true"); // belt-and-braces for iOS autoplay
         await video.play();
         if (cancelled) return;
 
-        const { BrowserMultiFormatReader } = await import("@zxing/browser");
-        const codeReader = new BrowserMultiFormatReader();
+        const [{ BrowserMultiFormatReader }, { DecodeHintType, BarcodeFormat }] = await Promise.all([
+          import("@zxing/browser"),
+          import("@zxing/library"),
+        ]);
+        // Retail food/drink barcodes are always one of these — restricting to just
+        // them (instead of ZXing's default of every format, including 2D ones like
+        // QR/PDF417) makes each frame decode faster and cuts down false negatives.
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.ITF,
+        ]);
+        hints.set(DecodeHintType.TRY_HARDER, true);
+        const codeReader = new BrowserMultiFormatReader(hints, {
+          delayBetweenScanAttempts: 100, // default is 500ms — far too sluggish for a handheld scan
+          delayBetweenScanSuccess: 500,
+        });
         const controls = await codeReader.decodeFromVideoElement(video, (result) => {
           if (result && !cancelled) {
             const value = result.getText();
@@ -1419,6 +1481,9 @@ export default function App() {
         }
       }
       readerRef.current = null;
+      trackRef.current = null;
+      setTorchSupported(false);
+      setTorchOn(false);
       if (stream) {
         stream.getTracks().forEach((t) => t.stop());
       }
@@ -1898,6 +1963,11 @@ export default function App() {
                           <div style={styles.scanFrame}>
                             <video ref={videoRef} style={styles.scanVideo} muted playsInline />
                             <div style={styles.scanReticle} />
+                            {torchSupported && (
+                              <button style={styles.scanTorchBtn} onClick={toggleTorch} aria-label="Toggle flashlight">
+                                {torchOn ? <FlashlightOff size={17} /> : <Flashlight size={17} />}
+                              </button>
+                            )}
                             <button style={styles.scanCancelBtn} onClick={stopScan}>
                               Cancel scan
                             </button>
@@ -3119,6 +3189,21 @@ const styles = {
     borderRadius: 999,
     padding: "8px 16px",
     fontSize: 12.5,
+    cursor: "pointer",
+  },
+  scanTorchBtn: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    background: "rgba(20,20,15,0.65)",
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: 999,
+    width: 36,
+    height: 36,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     cursor: "pointer",
   },
   scanError: { fontSize: 12, color: "var(--red)", margin: 0 },

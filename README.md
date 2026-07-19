@@ -62,7 +62,25 @@ for the camera-based barcode scanner to work on phones.
 Once it's live, open the URL on your phone in Safari/Chrome and use
 "Add to Home Screen". It'll behave like a normal app icon from then on.
 
-## 5. Set up daily reminder notifications (optional)
+## 5. Get a personal USDA key for better barcode coverage (optional)
+
+Scanning a barcode checks two databases: Open Food Facts (no setup needed —
+this is the main one, and it's strong for UK products) and USDA FoodData
+Central as a second pass for anything the first one misses (strongest for US
+brands, but growing). USDA works out of the box using the public `DEMO_KEY`,
+but that's capped at 10 requests/hour — fine for the odd item, but you'll
+run out fast on a proper shopping trip. Get your own free key instead:
+
+1. Go to https://fdc.nal.usda.gov/api-key-signup — fill in name + email, free.
+2. You'll get a key (on screen and/or by email). Open `src/App.jsx` and
+   paste it over `DEMO_KEY` in the `USDA_API_KEY` constant near the top.
+
+That raises the limit to 1,000 requests/hour. If a barcode still isn't
+found after both databases, you land in custom food entry — it isn't
+possible to guarantee every product on every shelf is in a free database,
+but between the two, most branded UK and US food/drink products are covered.
+
+## 6. Set up daily reminder notifications (optional)
 
 A "Daily reminder" toggle in Settings can push a notification to your phone
 if you haven't logged anything by a time you pick. It needs a small amount
