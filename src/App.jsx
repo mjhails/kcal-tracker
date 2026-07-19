@@ -97,6 +97,28 @@ const FOOD_DB = [
   { name: "Cheese & onion crisps", kcal: 519, protein: 6, carbs: 51, fat: 32.6, sat: 3.1, sugar: 3.4, unit: { grams: 25, label: "bag" } },
   { name: "Apple", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 100, label: "apple" } },
   { name: "Banana", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" } },
+  // ---- Common meat/poultry cuts and staples not otherwise covered above ----
+  { name: "Chicken leg/drumstick, roasted", kcal: 191, protein: 23.4, carbs: 0, fat: 10.2, sat: 2.7, sugar: 0, unit: { grams: 60, label: "drumstick" } },
+  { name: "Chicken wing, roasted", kcal: 254, protein: 23.8, carbs: 0, fat: 16.9, sat: 5, sugar: 0, unit: { grams: 30, label: "wing" } },
+  { name: "Chicken liver, fried", kcal: 165, protein: 24, carbs: 3.9, fat: 5.4, sat: 1.6, sugar: 0.3, unit: { grams: 100, label: "portion" } },
+  { name: "Gammon steak, grilled", kcal: 174, protein: 27, carbs: 1.3, fat: 6.6, sat: 2.2, sugar: 1.1, unit: { grams: 130, label: "steak" } },
+  { name: "Duck breast, grilled (skin removed)", kcal: 140, protein: 22, carbs: 0, fat: 5.5, sat: 1.8, sugar: 0, unit: { grams: 150, label: "breast" } },
+  { name: "Pork belly, roasted", kcal: 460, protein: 13, carbs: 0, fat: 44, sat: 15.8, sugar: 0, unit: { grams: 100, label: "portion" } },
+  { name: "Mackerel, grilled", kcal: 262, protein: 23.8, carbs: 0, fat: 17.8, sat: 4.2, sugar: 0, unit: { grams: 100, label: "fillet" } },
+  { name: "Sardines, tinned in tomato sauce", kcal: 185, protein: 20.9, carbs: 0.5, fat: 10.4, sat: 2.7, sugar: 0.5, unit: { grams: 100, label: "half tin" } },
+  { name: "Trout, baked", kcal: 160, protein: 23, carbs: 0, fat: 7, sat: 1.6, sugar: 0, unit: { grams: 150, label: "fillet" } },
+  // ---- Store cupboard / cooking staples ----
+  { name: "Crème fraîche", kcal: 305, protein: 2.2, carbs: 3, fat: 30, sat: 20, sugar: 3, unit: { grams: 30, label: "tbsp" } },
+  { name: "Stilton cheese", kcal: 410, protein: 23, carbs: 0.1, fat: 35, sat: 22, sugar: 0.1, unit: { grams: 30, label: "slice" } },
+  { name: "Sugar, granulated", kcal: 400, protein: 0, carbs: 100, fat: 0, sat: 0, sugar: 100, unit: { grams: 4, label: "tsp" } },
+  { name: "Breadcrumbs, dried", kcal: 395, protein: 13, carbs: 73, fat: 5, sat: 1, sugar: 4, unit: { grams: 30, label: "portion" } },
+  { name: "Worcestershire sauce", kcal: 78, protein: 0, carbs: 19.5, fat: 0, sat: 0, sugar: 15, unit: { grams: 5, label: "tsp" } },
+  { name: "Pearl barley, cooked", kcal: 123, protein: 2.3, carbs: 28.2, fat: 0.4, sat: 0.1, sugar: 0.3, unit: { grams: 180, label: "portion" } },
+  { name: "Bulgur wheat, cooked", kcal: 83, protein: 3.1, carbs: 18.6, fat: 0.2, sat: 0, sugar: 0.1, unit: { grams: 180, label: "portion" } },
+  { name: "Black beans, tinned (drained)", kcal: 132, protein: 8.9, carbs: 23.7, fat: 0.5, sat: 0.1, sugar: 0.3, unit: { grams: 200, label: "half tin" } },
+  // ---- Drinks — hot/cold non-alcoholic staples ----
+  { name: "Apple juice", kcal: 46, protein: 0.1, carbs: 11.3, fat: 0.1, sat: 0, sugar: 11, unit: { grams: 200, label: "glass" } },
+  { name: "Green tea", kcal: 1, protein: 0, carbs: 0, fat: 0, sat: 0, sugar: 0, unit: { grams: 200, label: "cup" } },
   // Drinks — kcal/units given per single standard serving (grams:100 = 1 serving)
   { name: "Real ale, pint (~4.2% ABV)", kcal: 32, protein: 0, carbs: 2.5, fat: 0, sat: 0, sugar: 0, units: 0.42, unit: { grams: 568, label: "pint" } },
   { name: "Lager, pint (~4% ABV)", kcal: 38, protein: 0, carbs: 2.1, fat: 0, sat: 0, sugar: 0, units: 0.41, unit: { grams: 568, label: "pint" } },
@@ -701,31 +723,64 @@ function levenshtein(a, b) {
   return dp[n];
 }
 
+// How many edits a word is allowed to be off by and still count as a typo of
+// another word. Kept tight — with 1,000+ distinct words across the food list,
+// even 2 edits on a short word starts colliding with unrelated words by pure
+// coincidence ("bread" ~ "breast"/"spread" are both 2 edits away).
+function maxEditDistance(len) {
+  if (len <= 6) return 1;
+  if (len <= 10) return 2;
+  return 3;
+}
+
+// Score for how well a single query word matches a single target word — lower is
+// better, null means no match at all.
+function wordMatchScore(qw, tw) {
+  if (tw === qw) return 0;
+  if (tw.startsWith(qw)) return 1;
+  if (tw.includes(qw)) return 2;
+  if (qw[0] !== tw[0]) return null; // typos essentially never change the first letter
+  const maxDist = maxEditDistance(qw.length);
+  if (Math.abs(tw.length - qw.length) > maxDist) return null; // too different in length to be a typo
+  const d = levenshtein(qw, tw);
+  return d <= maxDist ? 3 + d : null;
+}
+
 // How well `text` matches `query` — lower is better, null means no match at all.
-// Tries exact/prefix/word-prefix/substring first (cheap, and what people expect
-// for a correctly-spelled search), then falls back to typo-tolerant matching
-// against individual words so small spelling mistakes still find something —
-// e.g. "chiken" or "bananna" should still surface "Chicken breast" / "Banana".
+// Tries the whole query as one phrase first (cheapest, and what most correctly-
+// ordered searches hit), then falls back to matching each query word independently
+// against the target's words, in any order — so "grilled chicken" still finds
+// "Chicken breast, grilled", and small spelling mistakes ("chiken", "bananna")
+// still work. Every query word has to match something, or the whole query fails.
+// Strips accents (é -> e, î -> i, etc.) so "creme fraiche" matches "Crème fraîche",
+// and so the word-splitting regex below doesn't treat accented letters as delimiters.
+function stripAccents(s) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 function matchRank(query, text) {
-  const q = query.trim().toLowerCase();
+  const q = stripAccents(query.trim().toLowerCase());
   if (!q) return null;
-  const t = text.toLowerCase();
+  const t = stripAccents(text.toLowerCase());
   if (t === q) return 0;
   if (t.startsWith(q)) return 1;
-  const words = t.split(/[^a-z0-9]+/).filter(Boolean);
-  if (words.some((w) => w.startsWith(q))) return 2;
-  if (t.includes(q)) return 3;
+  if (t.includes(q)) return 2;
 
-  // Typo tolerance: allow roughly one edit per 4 characters (min 1, capped at 3),
-  // checked word-by-word so a typo in one word of a long name still matches.
-  const maxDist = Math.max(1, Math.min(3, Math.floor(q.length / 4) + 1));
-  let bestDist = Infinity;
-  for (const w of words) {
-    if (Math.abs(w.length - q.length) > maxDist) continue; // too different in length to be a typo
-    const d = levenshtein(q, w);
-    if (d < bestDist) bestDist = d;
+  const queryWords = q.split(/[^a-z0-9]+/).filter(Boolean);
+  const textWords = t.split(/[^a-z0-9]+/).filter(Boolean);
+  if (queryWords.length === 0) return null;
+
+  let total = 0;
+  for (const qw of queryWords) {
+    let best = null;
+    for (const tw of textWords) {
+      const s = wordMatchScore(qw, tw);
+      if (s !== null && (best === null || s < best)) best = s;
+    }
+    if (best === null) return null; // this query word matched nothing — whole query fails
+    total += best;
   }
-  return bestDist <= maxDist ? 4 + bestDist : null;
+  return 3 + total;
 }
 
 // Filters + ranks a list of named items against a query, worst matches dropped entirely.
