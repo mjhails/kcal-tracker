@@ -680,6 +680,63 @@ function findFood(name, extra) {
   return FOOD_DB.find((f) => f.name === name) || (extra || []).find((f) => f.name === name);
 }
 
+// Edit distance between two strings — used below to tolerate typos in search.
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = new Array(n + 1);
+  for (let j = 0; j <= n; j++) dp[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const temp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = temp;
+    }
+  }
+  return dp[n];
+}
+
+// How well `text` matches `query` — lower is better, null means no match at all.
+// Tries exact/prefix/word-prefix/substring first (cheap, and what people expect
+// for a correctly-spelled search), then falls back to typo-tolerant matching
+// against individual words so small spelling mistakes still find something —
+// e.g. "chiken" or "bananna" should still surface "Chicken breast" / "Banana".
+function matchRank(query, text) {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  const t = text.toLowerCase();
+  if (t === q) return 0;
+  if (t.startsWith(q)) return 1;
+  const words = t.split(/[^a-z0-9]+/).filter(Boolean);
+  if (words.some((w) => w.startsWith(q))) return 2;
+  if (t.includes(q)) return 3;
+
+  // Typo tolerance: allow roughly one edit per 4 characters (min 1, capped at 3),
+  // checked word-by-word so a typo in one word of a long name still matches.
+  const maxDist = Math.max(1, Math.min(3, Math.floor(q.length / 4) + 1));
+  let bestDist = Infinity;
+  for (const w of words) {
+    if (Math.abs(w.length - q.length) > maxDist) continue; // too different in length to be a typo
+    const d = levenshtein(q, w);
+    if (d < bestDist) bestDist = d;
+  }
+  return bestDist <= maxDist ? 4 + bestDist : null;
+}
+
+// Filters + ranks a list of named items against a query, worst matches dropped entirely.
+function searchByName(query, items, nameOf) {
+  return items
+    .map((item) => ({ item, rank: matchRank(query, nameOf(item)) }))
+    .filter((x) => x.rank !== null)
+    .sort((a, b) => a.rank - b.rank)
+    .map((x) => x.item);
+}
+
 const DEFAULT_TARGETS = { kcal: 2200, protein: 130, carbs: 250, fat: 75, sat: 22, sugar: 65, water: 2.5, weeklyUnits: 14 };
 const NUTRIENT_LABELS = { kcal: "kcal", protein: "protein", carbs: "carbs", fat: "fat", sat: "saturates", sugar: "sugar", water: "water", weeklyUnits: "weekly alcohol units" };
 const UNIT = { kcal: "kcal", protein: "g", carbs: "g", fat: "g", sat: "g", sugar: "g", water: "L", weeklyUnits: "units" };
@@ -1110,36 +1167,27 @@ export default function App() {
 
   const results = useMemo(() => {
     if (!query.trim()) return [];
-    const q = query.toLowerCase();
-    const mine = customFoods
-      .filter((f) => f.name.toLowerCase().includes(q) || (f.barcode && f.barcode === query.trim()))
-      .map((f) => ({ ...f, mine: true }));
-    const stock = FOOD_DB.filter((f) => f.name.toLowerCase().includes(q));
-    return [...mine, ...stock].slice(0, 10);
+    const barcodeHit = customFoods.filter((f) => f.barcode && f.barcode === query.trim());
+    const mine = searchByName(query, customFoods, (f) => f.name).map((f) => ({ ...f, mine: true }));
+    const stock = searchByName(query, FOOD_DB, (f) => f.name);
+    // De-dupe in case a custom food's barcode happened to also match by name
+    const mineNames = new Set(mine.map((f) => f.name));
+    const extraBarcodeHits = barcodeHit.filter((f) => !mineNames.has(f.name)).map((f) => ({ ...f, mine: true }));
+    return [...extraBarcodeHits, ...mine, ...stock].slice(0, 25);
   }, [query, customFoods]);
 
-  const recipeResults = useMemo(() => {
-    if (!query.trim()) return [];
-    const q = query.toLowerCase();
-    return RECIPES.filter((r) => r.name.toLowerCase().includes(q));
-  }, [query]);
+  const recipeResults = useMemo(() => searchByName(query, RECIPES, (r) => r.name), [query]);
 
-  const comboResults = useMemo(() => {
-    if (!query.trim()) return [];
-    const q = query.toLowerCase();
-    return combos.filter((c) => c.name.toLowerCase().includes(q));
-  }, [query, combos]);
+  const comboResults = useMemo(() => searchByName(query, combos, (c) => c.name), [query, combos]);
 
   const libraryCombos = useMemo(() => {
     if (!libraryQuery.trim()) return combos;
-    const q = libraryQuery.toLowerCase();
-    return combos.filter((c) => c.name.toLowerCase().includes(q));
+    return searchByName(libraryQuery, combos, (c) => c.name);
   }, [libraryQuery, combos]);
 
   const libraryRecipes = useMemo(() => {
     if (!libraryQuery.trim()) return RECIPES;
-    const q = libraryQuery.toLowerCase();
-    return RECIPES.filter((r) => r.name.toLowerCase().includes(q));
+    return searchByName(libraryQuery, RECIPES, (r) => r.name);
   }, [libraryQuery]);
 
   const groupedByMeal = useMemo(() => {
