@@ -62,6 +62,33 @@ for the camera-based barcode scanner to work on phones.
 Once it's live, open the URL on your phone in Safari/Chrome and use
 "Add to Home Screen". It'll behave like a normal app icon from then on.
 
+## 5. Set up daily reminder notifications (optional)
+
+A "Daily reminder" toggle in Settings can push a notification to your phone
+if you haven't logged anything by a time you pick. It needs a small amount
+of one-time setup:
+
+1. Generate a VAPID key pair (needs Node installed, no account or signup):
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+   This prints a Public Key and a Private Key.
+2. Open `src/App.jsx` and paste the Public Key over the placeholder
+   `VAPID_PUBLIC_KEY` near the top of the file.
+3. In your GitHub repo settings → **Secrets and variables → Actions**, add:
+   - `FIREBASE_SERVICE_ACCOUNT` — a Firebase service account key JSON.
+     Get one from **Project settings → Service accounts → Generate new
+     private key** in the Firebase console, then paste the whole file
+     contents in as the secret value.
+   - `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` — from step 1.
+   - `VAPID_SUBJECT` — `mailto:` followed by your email address.
+4. That's it — `.github/workflows/send-reminders.yml` runs every 5 minutes
+   and pings anyone whose reminder time has come round and who hasn't been
+   reminded yet today (see `Scripts/send-reminders/index.js`).
+
+If you skip this, the "Daily reminder" toggle in Settings stays visible but
+explains it isn't set up yet — nothing else in the app is affected.
+
 ## Notes on the data model
 
 - Each signed-in user's personal data (daily log, water, activity, targets)

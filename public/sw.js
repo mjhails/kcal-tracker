@@ -34,3 +34,20 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+
+// Daily reminder notifications, sent by Scripts/send-reminders via web-push.
+self.addEventListener("push", (event) => {
+  let data = { title: "Kcal Tracker", body: "Don't forget to log today's food." };
+  try {
+    if (event.data) data = event.data.json();
+  } catch (e) {
+    // Not JSON — fall back to the default message above.
+  }
+  const icon = new URL("icon-192.png", self.registration.scope).href;
+  event.waitUntil(self.registration.showNotification(data.title, { body: data.body, icon, badge: icon }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow(self.registration.scope));
+});

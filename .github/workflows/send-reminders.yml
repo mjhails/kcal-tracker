@@ -1,4 +1,4 @@
-.github/workflows.github/workflowsname: Send daily reminders
+name: Send daily reminders
 
 on:
   schedule:
@@ -16,11 +16,11 @@ jobs:
           node-version: 20
 
       - name: Install script dependencies
-        working-directory: scripts/send-reminders
+        working-directory: Scripts/send-reminders
         run: npm install
 
       - name: Run reminder check
-        working-directory: scripts/send-reminders
+        working-directory: Scripts/send-reminders
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
