@@ -31,6 +31,7 @@ import {
   setPushSubscription,
   getWeightLog,
   setWeightLog,
+  setStartingWeight,
 } from "./firebase.js";
 import AuthScreen from "./AuthScreen.jsx";
 
@@ -990,6 +991,10 @@ export default function App() {
   const [weightLbInput, setWeightLbInput] = useState("");
   const [weightMsg, setWeightMsg] = useState("");
   const [weightSaving, setWeightSaving] = useState(false);
+  const [startingWeightKg, setStartingWeightKgState] = useState(null);
+  const [startingWeightInput, setStartingWeightInput] = useState("");
+  const [startingWeightStoneInput, setStartingWeightStoneInput] = useState("");
+  const [startingWeightLbInput, setStartingWeightLbInput] = useState("");
   const videoRef = useRef(null);
   const readerRef = useRef(null);
   const trackRef = useRef(null);
@@ -1113,6 +1118,16 @@ export default function App() {
       setWeightStoneInput("");
       setWeightLbInput("");
     }
+    if (startingWeightKg) {
+      setStartingWeightInput(String(startingWeightKg));
+      const { stone, lb } = kgToStoneLb(startingWeightKg);
+      setStartingWeightStoneInput(String(stone));
+      setStartingWeightLbInput(String(lb));
+    } else {
+      setStartingWeightInput("");
+      setStartingWeightStoneInput("");
+      setStartingWeightLbInput("");
+    }
     setWeightMsg("");
     setShowWeight(true);
   }
@@ -1140,6 +1155,26 @@ export default function App() {
       setWeightMsg("Couldn't save — try again.");
     } finally {
       setWeightSaving(false);
+    }
+  }
+
+  async function saveStartingWeightEntry() {
+    const kg =
+      bodyWeightUnit === "kg"
+        ? parseFloat(startingWeightInput)
+        : stoneLbToKg(parseFloat(startingWeightStoneInput) || 0, parseFloat(startingWeightLbInput) || 0);
+    if (!kg || isNaN(kg) || kg <= 0) {
+      setWeightMsg("Enter a starting weight first.");
+      return;
+    }
+    const rounded = Math.round(kg * 10) / 10;
+    setStartingWeightKgState(rounded);
+    try {
+      await setStartingWeight(user.uid, rounded);
+      setWeightMsg("Starting weight saved.");
+    } catch (e) {
+      console.error("Failed to save starting weight", e);
+      setWeightMsg("Couldn't save — try again.");
     }
   }
 
@@ -1233,8 +1268,10 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    getWeightLog(user.uid).then((weights) => {
-      if (!cancelled) setWeightLogState(weights || []);
+    getWeightLog(user.uid).then(({ weights, startingWeight }) => {
+      if (cancelled) return;
+      setWeightLogState(weights || []);
+      setStartingWeightKgState(startingWeight ?? null);
     });
     return () => {
       cancelled = true;
@@ -1361,11 +1398,23 @@ export default function App() {
   const sortedWeightLog = useMemo(() => [...weightLog].sort((a, b) => (a.date < b.date ? -1 : 1)), [weightLog]);
 
   const weightTrend = useMemo(() => {
+    if (startingWeightKg && sortedWeightLog.length >= 1) {
+      const last = sortedWeightLog[sortedWeightLog.length - 1];
+      return {
+        last,
+        baselineLabel: "your starting weight",
+        deltaKg: Math.round((last.kg - startingWeightKg) * 10) / 10,
+      };
+    }
     if (sortedWeightLog.length < 2) return null;
     const first = sortedWeightLog[0];
     const last = sortedWeightLog[sortedWeightLog.length - 1];
-    return { first, last, deltaKg: Math.round((last.kg - first.kg) * 10) / 10 };
-  }, [sortedWeightLog]);
+    return {
+      last,
+      baselineLabel: `your first entry (${fmtDate(first.date)})`,
+      deltaKg: Math.round((last.kg - first.kg) * 10) / 10,
+    };
+  }, [sortedWeightLog, startingWeightKg]);
 
   const groupedByMeal = useMemo(() => {
     const g = { breakfast: [], lunch: [], dinner: [], snack: [], drinks: [] };
@@ -2817,6 +2866,55 @@ export default function App() {
             </div>
             {weightMsg && <p style={styles.deviceMsg}>{weightMsg}</p>}
 
+            <div style={styles.deviceSection}>
+              <span style={styles.sessionLabel}>STARTING WEIGHT</span>
+              <p style={styles.barcodeHint}>
+                {startingWeightKg
+                  ? "Set once so progress is measured against where you began, not just your first log entry."
+                  : "Set this to track how much you've lost overall, rather than just since your first entry."}
+              </p>
+              {bodyWeightUnit === "kg" ? (
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  style={styles.gramsInput}
+                  placeholder="e.g. 90"
+                  value={startingWeightInput}
+                  onChange={(ev) => setStartingWeightInput(ev.target.value)}
+                />
+              ) : (
+                <div style={styles.customGrid}>
+                  <div>
+                    <label style={styles.fieldLabelSmall}>Stone</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      style={styles.textInput}
+                      placeholder="e.g. 14"
+                      value={startingWeightStoneInput}
+                      onChange={(ev) => setStartingWeightStoneInput(ev.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label style={styles.fieldLabelSmall}>Pounds</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      style={styles.textInput}
+                      placeholder="e.g. 2"
+                      value={startingWeightLbInput}
+                      onChange={(ev) => setStartingWeightLbInput(ev.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+              <div style={styles.sheetActions}>
+                <button style={styles.secondaryBtn} onClick={saveStartingWeightEntry}>
+                  {startingWeightKg ? "Update starting weight" : "Save starting weight"}
+                </button>
+              </div>
+            </div>
+
             {sortedWeightLog.length > 0 && (
               <div style={styles.deviceSection}>
                 <span style={styles.sessionLabel}>PROGRESS</span>
@@ -2828,7 +2926,7 @@ export default function App() {
                           Math.abs(weightTrend.deltaKg),
                           bodyWeightUnit
                         )}`}{" "}
-                    since your first entry ({fmtDate(weightTrend.first.date)}).
+                    since {weightTrend.baselineLabel}.
                   </p>
                 )}
                 <WeightSparkline entries={sortedWeightLog.slice(-20)} />
