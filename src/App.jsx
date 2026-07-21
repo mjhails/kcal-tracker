@@ -32,6 +32,8 @@ import {
   getWeightLog,
   setWeightLog,
   setStartingWeight,
+  getFoodWeights,
+  setFoodWeights,
 } from "./firebase.js";
 import AuthScreen from "./AuthScreen.jsx";
 
@@ -99,7 +101,7 @@ const FOOD_DB = [
   { name: "Avocado", kcal: 160, protein: 2, carbs: 8.5, fat: 14.7, sat: 2.1, sugar: 0.7, unit: { grams: 150, label: "avocado" } },
   { name: "Spinach, raw", kcal: 23, protein: 2.9, carbs: 1.6, fat: 0.4, sat: 0.1, sugar: 0.4, unit: { grams: 30, label: "handful" } },
   { name: "Cheese & onion crisps", kcal: 519, protein: 6, carbs: 51, fat: 32.6, sat: 3.1, sugar: 3.4, unit: { grams: 25, label: "bag" } },
-  { name: "Apple", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 100, label: "apple" } },
+  { name: "Apple", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 182, label: "apple" } },
   { name: "Banana", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" } },
   // ---- Common meat/poultry cuts and staples not otherwise covered above ----
   { name: "Chicken leg/drumstick, roasted", kcal: 191, protein: 23.4, carbs: 0, fat: 10.2, sat: 2.7, sugar: 0, unit: { grams: 60, label: "drumstick" } },
@@ -259,7 +261,7 @@ const FOOD_DB = [
   { name: "Aldi Carlos Nacho Chips", kcal: 480, protein: 7, carbs: 65, fat: 21, sat: 3, sugar: 2, unit: { grams: 30, label: "handful" } },
   { name: "Aldi Carlos Salsa Dip", kcal: 45, protein: 1, carbs: 9, fat: 0.3, sat: 0, sugar: 7, unit: { grams: 30, label: "2 tbsp" } },
   { name: "Aldi Farm Select Bananas", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" } },
-  { name: "Aldi Farm Select Braeburn Apples", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 100, label: "apple" } },
+  { name: "Aldi Farm Select Braeburn Apples", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 182, label: "apple" } },
   { name: "Aldi Crestwood High Protein Pasta", kcal: 335, protein: 25, carbs: 45, fat: 3, sat: 0.5, sugar: 2, unit: { grams: 75, label: "portion (dry)" } },
   // ---- National brands (condiments, bread, cereal — the ones people search by name) ----
   { name: "Hellmann's Real Mayonnaise", kcal: 711, protein: 1, carbs: 1, fat: 78, sat: 6.5, sugar: 1, unit: { grams: 15, label: "tbsp" } },
@@ -294,9 +296,9 @@ const FOOD_DB = [
   { name: "Linda McCartney Vegetarian Sausages", kcal: 189, protein: 15, carbs: 13, fat: 8.5, sat: 1, sugar: 1.5, unit: { grams: 42, label: "sausage" } },
   { name: "Linda McCartney Vegetarian Mince", kcal: 105, protein: 13, carbs: 6, fat: 3.2, sat: 0.4, sugar: 1, unit: { grams: 100, label: "portion" } },
   // ---- Fruit: named varieties (how people actually search fresh produce) + real brands ----
-  { name: "Pink Lady Apple", kcal: 52, protein: 0.3, carbs: 12.8, fat: 0.2, sat: 0, sugar: 12.4, unit: { grams: 100, label: "apple" } },
-  { name: "Gala Apple", kcal: 48, protein: 0.3, carbs: 11.6, fat: 0.1, sat: 0, sugar: 11.4, unit: { grams: 100, label: "apple" } },
-  { name: "Granny Smith Apple", kcal: 44, protein: 0.3, carbs: 10.5, fat: 0.2, sat: 0, sugar: 9.8, unit: { grams: 100, label: "apple" } },
+  { name: "Pink Lady Apple", kcal: 52, protein: 0.3, carbs: 12.8, fat: 0.2, sat: 0, sugar: 12.4, unit: { grams: 182, label: "apple" } },
+  { name: "Gala Apple", kcal: 48, protein: 0.3, carbs: 11.6, fat: 0.1, sat: 0, sugar: 11.4, unit: { grams: 182, label: "apple" } },
+  { name: "Granny Smith Apple", kcal: 44, protein: 0.3, carbs: 10.5, fat: 0.2, sat: 0, sugar: 9.8, unit: { grams: 182, label: "apple" } },
   // ---- More: plant milks, protein bars, meat cuts, veg, sandwich fillings, world food ----
   { name: "Oatly Oat Milk (Original)", kcal: 47, protein: 1, carbs: 6.7, fat: 1.5, sat: 0.2, sugar: 4.1, unit: { grams: 30, label: "splash (cereal/tea)" } },
   { name: "Alpro Almond Milk (Unsweetened)", kcal: 13, protein: 0.4, carbs: 0.3, fat: 1.1, sat: 0.1, sugar: 0.1, unit: { grams: 30, label: "splash (cereal/tea)" } },
@@ -968,6 +970,7 @@ export default function App() {
   const [otherDaysKcal, setOtherDaysKcal] = useState(0);
   const [combos, setCombos] = useState([]);
   const [customFoods, setCustomFoods] = useState([]);
+  const [foodWeights, setFoodWeightsState] = useState({});
   const [sessionAdds, setSessionAdds] = useState([]);
   const [savingCombo, setSavingCombo] = useState(false);
   const [comboName, setComboName] = useState("");
@@ -1340,6 +1343,18 @@ export default function App() {
     };
   }, [user]);
 
+  // Load remembered portion sizes once per signed-in user — private, like weight
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getFoodWeights(user.uid).then((weights) => {
+      if (!cancelled) setFoodWeightsState(weights || {});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   const saveEntries = useCallback(
     async (next) => {
       setEntries(next);
@@ -1564,10 +1579,16 @@ export default function App() {
   function selectFood(f) {
     setPicked(f);
     setWeightUnit(guessWeightUnit(f, meal));
-    if (f.unit) {
+    const remembered = foodWeights[f.name];
+    if (f.unit) setUnitWeight(f.unit.grams);
+    if (remembered) {
+      // Last amount actually logged for this food, rather than the generic stock portion
+      setAmountMode("grams");
+      setGrams(remembered);
+      setCount(f.unit ? Math.round((remembered / f.unit.grams) * 100) / 100 : 1);
+    } else if (f.unit) {
       setAmountMode("count");
       setCount(1);
-      setUnitWeight(f.unit.grams);
       setGrams(f.unit.grams);
     } else {
       setAmountMode("grams");
@@ -1853,6 +1874,13 @@ export default function App() {
     setWeightUnit(meal === "drinks" ? "ml" : "g");
   }
 
+  function rememberFoodWeight(name, grams) {
+    if (!user || !name || !grams) return;
+    const next = { ...foodWeights, [name]: grams };
+    setFoodWeightsState(next);
+    setFoodWeights(user.uid, next).catch((e) => console.error("Failed to save remembered weight", e));
+  }
+
   function confirmAdd() {
     const base = customMode
       ? {
@@ -1872,6 +1900,7 @@ export default function App() {
     const entry = { id: uid(), ...base, grams: Math.round(effectiveGrams * 10) / 10, meal, unitLabel };
     saveEntries([...entries, entry]);
     setSessionAdds((prev) => [...prev, entry]);
+    rememberFoodWeight(entry.name, entry.grams);
     if (customMode) {
       const exists = customFoods.some((f) => f.name.toLowerCase() === base.name.toLowerCase());
       if (!exists) {

@@ -70,6 +70,18 @@ export async function setUserTargets(uid, targets) {
   await setDoc(doc(db, "users", uid), { targets }, { merge: true });
 }
 
+// ---- Remembered portion sizes: last grams logged per food name, so picking a
+// food again defaults to how much you actually eat instead of the generic
+// stock amount. Private per user — you and the other person may eat different
+// amounts of the same food.
+export async function getFoodWeights(uid) {
+  const snap = await getDoc(doc(db, "users", uid));
+  return snap.exists() && snap.data().foodWeights ? snap.data().foodWeights : {};
+}
+export async function setFoodWeights(uid, foodWeights) {
+  await setDoc(doc(db, "users", uid), { foodWeights }, { merge: true });
+}
+
 // ---- Weight log (private to each signed-in user) ----
 export async function getWeightLog(uid) {
   const snap = await getDoc(doc(db, "users", uid));
