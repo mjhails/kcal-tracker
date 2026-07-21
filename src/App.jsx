@@ -992,9 +992,14 @@ export default function App() {
   const [weightMsg, setWeightMsg] = useState("");
   const [weightSaving, setWeightSaving] = useState(false);
   const [startingWeightKg, setStartingWeightKgState] = useState(null);
+  const [startingWeightDate, setStartingWeightDate] = useState(null);
   const [startingWeightInput, setStartingWeightInput] = useState("");
   const [startingWeightStoneInput, setStartingWeightStoneInput] = useState("");
   const [startingWeightLbInput, setStartingWeightLbInput] = useState("");
+  const [startingWeightDateInput, setStartingWeightDateInput] = useState("");
+  const [weightEntryDate, setWeightEntryDate] = useState("");
+  const [showWeightCelebration, setShowWeightCelebration] = useState(false);
+  const [weightCelebrationText, setWeightCelebrationText] = useState("");
   const videoRef = useRef(null);
   const readerRef = useRef(null);
   const trackRef = useRef(null);
@@ -1105,12 +1110,14 @@ export default function App() {
     }
   }
 
-  function openWeightScreen() {
-    const today = isoDate(new Date());
-    const todayEntry = weightLog.find((w) => w.date === today);
-    if (todayEntry) {
-      setWeightKgInput(String(todayEntry.kg));
-      const { stone, lb } = kgToStoneLb(todayEntry.kg);
+  // Fills the weigh-in inputs from whatever's already logged for `forDate`, or clears them.
+  // Takes the log explicitly (rather than always reading the `weightLog` state) so callers
+  // that just computed a new array — like a delete that hasn't re-rendered yet — stay in sync.
+  function loadWeightInputsForDate(forDate, log = weightLog) {
+    const entry = log.find((w) => w.date === forDate);
+    if (entry) {
+      setWeightKgInput(String(entry.kg));
+      const { stone, lb } = kgToStoneLb(entry.kg);
       setWeightStoneInput(String(stone));
       setWeightLbInput(String(lb));
     } else {
@@ -1118,6 +1125,12 @@ export default function App() {
       setWeightStoneInput("");
       setWeightLbInput("");
     }
+  }
+
+  function openWeightScreen() {
+    const today = isoDate(new Date());
+    setWeightEntryDate(today);
+    loadWeightInputsForDate(today);
     if (startingWeightKg) {
       setStartingWeightInput(String(startingWeightKg));
       const { stone, lb } = kgToStoneLb(startingWeightKg);
@@ -1128,8 +1141,37 @@ export default function App() {
       setStartingWeightStoneInput("");
       setStartingWeightLbInput("");
     }
+    setStartingWeightDateInput(startingWeightDate || today);
     setWeightMsg("");
     setShowWeight(true);
+  }
+
+  function handleWeightEntryDateChange(newDate) {
+    setWeightEntryDate(newDate);
+    loadWeightInputsForDate(newDate);
+    setWeightMsg("");
+  }
+
+  // How much has been lost (positive) or gained (negative) as of the most recent entry
+  function lostSoFar(log, startKg) {
+    if (!startKg || log.length === 0) return null;
+    const latest = [...log].sort((a, b) => (a.date < b.date ? -1 : 1)).slice(-1)[0];
+    return Math.round((startKg - latest.kg) * 10) / 10;
+  }
+
+  // Celebrates crossing a new round-number milestone (every 5kg, or every stone if
+  // that's the unit currently in view) — only fires forward, never on a step back.
+  function checkWeightMilestone(prevLostKg, newLostKg) {
+    const stepKg = bodyWeightUnit === "st" ? LB_PER_STONE * KG_PER_LB : 5;
+    const prevMilestone = Math.floor((prevLostKg ?? 0) / stepKg);
+    const newMilestone = Math.floor(newLostKg / stepKg);
+    if (newMilestone > prevMilestone && newMilestone >= 1) {
+      const amount = newMilestone * stepKg;
+      const label =
+        bodyWeightUnit === "st" ? `${newMilestone} stone` : `${Math.round(amount)}kg`;
+      setWeightCelebrationText(`You've lost ${label} — amazing work.`);
+      setShowWeightCelebration(true);
+    }
   }
 
   async function saveWeightEntry() {
@@ -1141,20 +1183,37 @@ export default function App() {
       setWeightMsg("Enter a weight first.");
       return;
     }
+    if (!weightEntryDate) {
+      setWeightMsg("Pick a date first.");
+      return;
+    }
     setWeightSaving(true);
-    const today = isoDate(new Date());
-    const next = weightLog.filter((w) => w.date !== today);
-    next.push({ date: today, kg: Math.round(kg * 10) / 10 });
+    const prevLost = lostSoFar(weightLog, startingWeightKg);
+    const next = weightLog.filter((w) => w.date !== weightEntryDate);
+    next.push({ date: weightEntryDate, kg: Math.round(kg * 10) / 10 });
     next.sort((a, b) => (a.date < b.date ? -1 : 1));
     setWeightLogState(next);
     try {
       await setWeightLog(user.uid, next);
       setWeightMsg("Saved.");
+      const newLost = lostSoFar(next, startingWeightKg);
+      if (startingWeightKg && newLost != null) checkWeightMilestone(prevLost, newLost);
     } catch (e) {
       console.error("Failed to save weight", e);
       setWeightMsg("Couldn't save — try again.");
     } finally {
       setWeightSaving(false);
+    }
+  }
+
+  async function deleteWeightEntry(dateToDelete) {
+    const next = weightLog.filter((w) => w.date !== dateToDelete);
+    setWeightLogState(next);
+    if (dateToDelete === weightEntryDate) loadWeightInputsForDate(weightEntryDate, next);
+    try {
+      await setWeightLog(user.uid, next);
+    } catch (e) {
+      console.error("Failed to delete weight entry", e);
     }
   }
 
@@ -1168,9 +1227,11 @@ export default function App() {
       return;
     }
     const rounded = Math.round(kg * 10) / 10;
+    const entryDate = startingWeightDateInput || isoDate(new Date());
     setStartingWeightKgState(rounded);
+    setStartingWeightDate(entryDate);
     try {
-      await setStartingWeight(user.uid, rounded);
+      await setStartingWeight(user.uid, { kg: rounded, date: entryDate });
       setWeightMsg("Starting weight saved.");
     } catch (e) {
       console.error("Failed to save starting weight", e);
@@ -1271,7 +1332,8 @@ export default function App() {
     getWeightLog(user.uid).then(({ weights, startingWeight }) => {
       if (cancelled) return;
       setWeightLogState(weights || []);
-      setStartingWeightKgState(startingWeight ?? null);
+      setStartingWeightKgState(startingWeight ? startingWeight.kg : null);
+      setStartingWeightDate(startingWeight ? startingWeight.date : null);
     });
     return () => {
       cancelled = true;
@@ -1369,6 +1431,12 @@ export default function App() {
     return () => clearTimeout(t);
   }, [showWaterCelebration]);
 
+  useEffect(() => {
+    if (!showWeightCelebration) return;
+    const t = setTimeout(() => setShowWeightCelebration(false), 3400);
+    return () => clearTimeout(t);
+  }, [showWeightCelebration]);
+
 
   const results = useMemo(() => {
     if (!query.trim()) return [];
@@ -1402,7 +1470,7 @@ export default function App() {
       const last = sortedWeightLog[sortedWeightLog.length - 1];
       return {
         last,
-        baselineLabel: "your starting weight",
+        baselineLabel: startingWeightDate ? `you started (${fmtDate(startingWeightDate)})` : "your starting weight",
         deltaKg: Math.round((last.kg - startingWeightKg) * 10) / 10,
       };
     }
@@ -1414,7 +1482,7 @@ export default function App() {
       baselineLabel: `your first entry (${fmtDate(first.date)})`,
       deltaKg: Math.round((last.kg - first.kg) * 10) / 10,
     };
-  }, [sortedWeightLog, startingWeightKg]);
+  }, [sortedWeightLog, startingWeightKg, startingWeightDate]);
 
   const groupedByMeal = useMemo(() => {
     const g = { breakfast: [], lunch: [], dinner: [], snack: [], drinks: [] };
@@ -1887,6 +1955,15 @@ export default function App() {
           <div>
             <div style={styles.celebrationTitle}>Water goal hit!</div>
             <div style={styles.celebrationSub}>Nice one — {targets.water}L done for today.</div>
+          </div>
+        </div>
+      )}
+      {showWeightCelebration && (
+        <div style={styles.celebrationToast} className="celebrate-toast">
+          <span style={styles.celebrationEmoji}>🎉</span>
+          <div>
+            <div style={styles.celebrationTitle}>Milestone reached!</div>
+            <div style={styles.celebrationSub}>{weightCelebrationText}</div>
           </div>
         </div>
       )}
@@ -2806,7 +2883,7 @@ export default function App() {
             </div>
 
             <div style={styles.amountLabelRow}>
-              <label style={styles.fieldLabel}>Today's weight</label>
+              <label style={styles.fieldLabel}>Log a weigh-in</label>
               <div style={styles.unitToggle}>
                 <button
                   style={{ ...styles.unitToggleBtn, ...(bodyWeightUnit === "kg" ? styles.unitToggleBtnActive : {}) }}
@@ -2822,6 +2899,14 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            <input
+              type="date"
+              style={styles.textInput}
+              value={weightEntryDate}
+              max={isoDate(new Date())}
+              onChange={(ev) => handleWeightEntryDateChange(ev.target.value)}
+            />
 
             {bodyWeightUnit === "kg" ? (
               <input
@@ -2861,7 +2946,7 @@ export default function App() {
 
             <div style={styles.sheetActions}>
               <button style={styles.primaryBtn} onClick={saveWeightEntry} disabled={weightSaving}>
-                {weightSaving ? "Saving…" : "Save today's weight"}
+                {weightSaving ? "Saving…" : `Save weigh-in for ${fmtDate(weightEntryDate)}`}
               </button>
             </div>
             {weightMsg && <p style={styles.deviceMsg}>{weightMsg}</p>}
@@ -2873,6 +2958,14 @@ export default function App() {
                   ? "Set once so progress is measured against where you began, not just your first log entry."
                   : "Set this to track how much you've lost overall, rather than just since your first entry."}
               </p>
+              <label style={styles.fieldLabelSmall}>Date you started</label>
+              <input
+                type="date"
+                style={styles.textInput}
+                value={startingWeightDateInput}
+                max={isoDate(new Date())}
+                onChange={(ev) => setStartingWeightDateInput(ev.target.value)}
+              />
               {bodyWeightUnit === "kg" ? (
                 <input
                   type="number"
@@ -2918,23 +3011,34 @@ export default function App() {
             {sortedWeightLog.length > 0 && (
               <div style={styles.deviceSection}>
                 <span style={styles.sessionLabel}>PROGRESS</span>
-                {weightTrend && (
-                  <p style={styles.barcodeHint}>
-                    {weightTrend.deltaKg === 0
-                      ? "No change"
-                      : `${weightTrend.deltaKg > 0 ? "Up" : "Down"} ${displayWeight(
-                          Math.abs(weightTrend.deltaKg),
-                          bodyWeightUnit
-                        )}`}{" "}
-                    since {weightTrend.baselineLabel}.
-                  </p>
+
+                {weightTrend && weightTrend.deltaKg !== 0 && (
+                  <div style={styles.weightHeroCard}>
+                    <div style={styles.weightHeroNumber}>
+                      {displayWeight(Math.abs(weightTrend.deltaKg), bodyWeightUnit)}
+                    </div>
+                    <div style={styles.weightHeroLabel}>
+                      {weightTrend.deltaKg > 0 ? "gained" : "lost"} since {weightTrend.baselineLabel}
+                    </div>
+                  </div>
                 )}
+                {weightTrend && weightTrend.deltaKg === 0 && (
+                  <p style={styles.barcodeHint}>No change since {weightTrend.baselineLabel}.</p>
+                )}
+
                 <WeightSparkline entries={sortedWeightLog.slice(-20)} />
                 <div style={styles.resultsList}>
                   {[...sortedWeightLog].reverse().map((w) => (
                     <div key={w.date} style={styles.deviceRow}>
                       <span style={styles.deviceName}>{fmtDate(w.date)}</span>
                       <span style={styles.deviceName}>{displayWeight(w.kg, bodyWeightUnit)}</span>
+                      <button
+                        style={styles.trashBtn}
+                        onClick={() => deleteWeightEntry(w.date)}
+                        aria-label={`Remove weight entry for ${fmtDate(w.date)}`}
+                      >
+                        <Trash2 size={15} strokeWidth={1.75} />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -3813,6 +3917,14 @@ const styles = {
   customForm: { display: "flex", flexDirection: "column", gap: 10 },
   customGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginTop: 6 },
   deviceSection: { marginTop: 26, paddingTop: 18, borderTop: `1px solid var(--line)`, display: "flex", flexDirection: "column", gap: 10 },
+  weightHeroCard: {
+    textAlign: "center",
+    padding: "22px 16px",
+    background: "linear-gradient(135deg, var(--sage-tint), var(--bg-card))",
+    borderRadius: 16,
+  },
+  weightHeroNumber: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 34, fontWeight: 700, color: "var(--sage-deep)" },
+  weightHeroLabel: { fontSize: 13, color: "var(--muted)", marginTop: 4 },
   deviceList: { display: "flex", flexDirection: "column", gap: 8 },
   deviceRow: {
     display: "flex",

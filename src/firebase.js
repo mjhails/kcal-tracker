@@ -75,13 +75,16 @@ export async function getWeightLog(uid) {
   const snap = await getDoc(doc(db, "users", uid));
   if (!snap.exists()) return { weights: [], startingWeight: null };
   const d = snap.data();
-  return { weights: d.weights || [], startingWeight: d.startingWeight ?? null };
+  let startingWeight = d.startingWeight ?? null;
+  // Older data stored this as a bare kg number — normalise to { kg, date }.
+  if (typeof startingWeight === "number") startingWeight = { kg: startingWeight, date: null };
+  return { weights: d.weights || [], startingWeight };
 }
 export async function setWeightLog(uid, weights) {
   await setDoc(doc(db, "users", uid), { weights }, { merge: true });
 }
-export async function setStartingWeight(uid, kg) {
-  await setDoc(doc(db, "users", uid), { startingWeight: kg }, { merge: true });
+export async function setStartingWeight(uid, startingWeight) {
+  await setDoc(doc(db, "users", uid), { startingWeight }, { merge: true });
 }
 
 // ---- Push notification setup (reminder time + subscription, private per user) ----
