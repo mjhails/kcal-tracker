@@ -13,6 +13,7 @@ import {
   LogOut,
   Flashlight,
   FlashlightOff,
+  Weight,
 } from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
@@ -28,6 +29,8 @@ import {
   getReminderSettings,
   setReminderTime,
   setPushSubscription,
+  getWeightLog,
+  setWeightLog,
 } from "./firebase.js";
 import AuthScreen from "./AuthScreen.jsx";
 
@@ -839,6 +842,53 @@ function fmtDate(iso) {
   if (iso === yest) return "Yesterday";
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 }
+// ---- Body weight: stored internally as kg, displayed as kg or stone/lb ----
+const KG_PER_LB = 0.45359237;
+const LB_PER_STONE = 14;
+function kgToStoneLb(kg) {
+  const totalLb = Math.round((kg / KG_PER_LB) * 10) / 10;
+  const stone = Math.floor(totalLb / LB_PER_STONE);
+  const lb = Math.round((totalLb - stone * LB_PER_STONE) * 10) / 10;
+  return { stone, lb };
+}
+function stoneLbToKg(stone, lb) {
+  return (stone * LB_PER_STONE + lb) * KG_PER_LB;
+}
+function displayWeight(kg, unit) {
+  if (unit === "kg") return `${kg.toFixed(1)} kg`;
+  const { stone, lb } = kgToStoneLb(kg);
+  return `${stone}st ${lb.toFixed(1)}lb`;
+}
+
+function WeightSparkline({ entries, width = 280, height = 70 }) {
+  if (entries.length < 2) return null;
+  const kgs = entries.map((e) => e.kg);
+  const min = Math.min(...kgs);
+  const max = Math.max(...kgs);
+  const range = max - min || 1;
+  const pad = 8;
+  const points = entries.map((e, i) => {
+    const x = pad + (i / (entries.length - 1)) * (width - pad * 2);
+    const y = height - pad - ((e.kg - min) / range) * (height - pad * 2);
+    return [x, y];
+  });
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: "block", margin: "8px 0" }}>
+      <polyline
+        points={points.map(([x, y]) => `${x},${y}`).join(" ")}
+        fill="none"
+        stroke="var(--sage-deep)"
+        strokeWidth="2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      {points.map(([x, y], i) => (
+        <circle key={entries[i].date} cx={x} cy={y} r="2.5" fill="var(--sage-deep)" />
+      ))}
+    </svg>
+  );
+}
+
 function trafficColor(pct) {
   if (pct <= 0.9) return "var(--green)";
   if (pct <= 1.1) return "var(--amber)";
@@ -932,6 +982,14 @@ export default function App() {
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [reminderMsg, setReminderMsg] = useState("");
   const [reminderBusy, setReminderBusy] = useState(false);
+  const [showWeight, setShowWeight] = useState(false);
+  const [weightLog, setWeightLogState] = useState([]);
+  const [bodyWeightUnit, setBodyWeightUnit] = useState("kg");
+  const [weightKgInput, setWeightKgInput] = useState("");
+  const [weightStoneInput, setWeightStoneInput] = useState("");
+  const [weightLbInput, setWeightLbInput] = useState("");
+  const [weightMsg, setWeightMsg] = useState("");
+  const [weightSaving, setWeightSaving] = useState(false);
   const videoRef = useRef(null);
   const readerRef = useRef(null);
   const trackRef = useRef(null);
@@ -1042,6 +1100,49 @@ export default function App() {
     }
   }
 
+  function openWeightScreen() {
+    const today = isoDate(new Date());
+    const todayEntry = weightLog.find((w) => w.date === today);
+    if (todayEntry) {
+      setWeightKgInput(String(todayEntry.kg));
+      const { stone, lb } = kgToStoneLb(todayEntry.kg);
+      setWeightStoneInput(String(stone));
+      setWeightLbInput(String(lb));
+    } else {
+      setWeightKgInput("");
+      setWeightStoneInput("");
+      setWeightLbInput("");
+    }
+    setWeightMsg("");
+    setShowWeight(true);
+  }
+
+  async function saveWeightEntry() {
+    const kg =
+      bodyWeightUnit === "kg"
+        ? parseFloat(weightKgInput)
+        : stoneLbToKg(parseFloat(weightStoneInput) || 0, parseFloat(weightLbInput) || 0);
+    if (!kg || isNaN(kg) || kg <= 0) {
+      setWeightMsg("Enter a weight first.");
+      return;
+    }
+    setWeightSaving(true);
+    const today = isoDate(new Date());
+    const next = weightLog.filter((w) => w.date !== today);
+    next.push({ date: today, kg: Math.round(kg * 10) / 10 });
+    next.sort((a, b) => (a.date < b.date ? -1 : 1));
+    setWeightLogState(next);
+    try {
+      await setWeightLog(user.uid, next);
+      setWeightMsg("Saved.");
+    } catch (e) {
+      console.error("Failed to save weight", e);
+      setWeightMsg("Couldn't save — try again.");
+    } finally {
+      setWeightSaving(false);
+    }
+  }
+
   // Load the shared household library (combos + personal food entries) once signed in
   useEffect(() => {
     if (!user) return;
@@ -1122,6 +1223,18 @@ export default function App() {
       if (cancelled) return;
       setReminderTimeInput(reminderTime || "");
       setPushSubscribed(!!pushSubscription);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // Load body weight log once per signed-in user — private to them, like reminder settings
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getWeightLog(user.uid).then((weights) => {
+      if (!cancelled) setWeightLogState(weights || []);
     });
     return () => {
       cancelled = true;
@@ -1244,6 +1357,15 @@ export default function App() {
     if (!libraryQuery.trim()) return RECIPES;
     return searchByName(libraryQuery, RECIPES, (r) => r.name);
   }, [libraryQuery]);
+
+  const sortedWeightLog = useMemo(() => [...weightLog].sort((a, b) => (a.date < b.date ? -1 : 1)), [weightLog]);
+
+  const weightTrend = useMemo(() => {
+    if (sortedWeightLog.length < 2) return null;
+    const first = sortedWeightLog[0];
+    const last = sortedWeightLog[sortedWeightLog.length - 1];
+    return { first, last, deltaKg: Math.round((last.kg - first.kg) * 10) / 10 };
+  }, [sortedWeightLog]);
 
   const groupedByMeal = useMemo(() => {
     const g = { breakfast: [], lunch: [], dinner: [], snack: [], drinks: [] };
@@ -1739,6 +1861,9 @@ export default function App() {
                 aria-label="Meal library"
               >
                 <BookOpen size={18} strokeWidth={1.75} />
+              </button>
+              <button style={styles.iconBtn} onClick={openWeightScreen} aria-label="Weight tracker">
+                <Weight size={18} strokeWidth={1.75} />
               </button>
               <button
                 style={styles.iconBtn}
@@ -2617,6 +2742,106 @@ export default function App() {
               </div>
               {deviceMsg && <p style={styles.deviceMsg}>{deviceMsg}</p>}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showWeight && (
+        <div style={styles.overlay} onClick={() => setShowWeight(false)}>
+          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+            <div style={styles.sheetHeader}>
+              <span style={styles.sheetTitle}>Weight tracker</span>
+              <button style={styles.iconBtn} onClick={() => setShowWeight(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={styles.amountLabelRow}>
+              <label style={styles.fieldLabel}>Today's weight</label>
+              <div style={styles.unitToggle}>
+                <button
+                  style={{ ...styles.unitToggleBtn, ...(bodyWeightUnit === "kg" ? styles.unitToggleBtnActive : {}) }}
+                  onClick={() => setBodyWeightUnit("kg")}
+                >
+                  kg
+                </button>
+                <button
+                  style={{ ...styles.unitToggleBtn, ...(bodyWeightUnit === "st" ? styles.unitToggleBtnActive : {}) }}
+                  onClick={() => setBodyWeightUnit("st")}
+                >
+                  st
+                </button>
+              </div>
+            </div>
+
+            {bodyWeightUnit === "kg" ? (
+              <input
+                type="number"
+                inputMode="decimal"
+                style={styles.gramsInput}
+                placeholder="e.g. 82.3"
+                value={weightKgInput}
+                onChange={(ev) => setWeightKgInput(ev.target.value)}
+              />
+            ) : (
+              <div style={styles.customGrid}>
+                <div>
+                  <label style={styles.fieldLabelSmall}>Stone</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    style={styles.textInput}
+                    placeholder="e.g. 12"
+                    value={weightStoneInput}
+                    onChange={(ev) => setWeightStoneInput(ev.target.value)}
+                  />
+                </div>
+                <div>
+                  <label style={styles.fieldLabelSmall}>Pounds</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    style={styles.textInput}
+                    placeholder="e.g. 7"
+                    value={weightLbInput}
+                    onChange={(ev) => setWeightLbInput(ev.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div style={styles.sheetActions}>
+              <button style={styles.primaryBtn} onClick={saveWeightEntry} disabled={weightSaving}>
+                {weightSaving ? "Saving…" : "Save today's weight"}
+              </button>
+            </div>
+            {weightMsg && <p style={styles.deviceMsg}>{weightMsg}</p>}
+
+            {sortedWeightLog.length > 0 && (
+              <div style={styles.deviceSection}>
+                <span style={styles.sessionLabel}>PROGRESS</span>
+                {weightTrend && (
+                  <p style={styles.barcodeHint}>
+                    {weightTrend.deltaKg === 0
+                      ? "No change"
+                      : `${weightTrend.deltaKg > 0 ? "Up" : "Down"} ${displayWeight(
+                          Math.abs(weightTrend.deltaKg),
+                          bodyWeightUnit
+                        )}`}{" "}
+                    since your first entry ({fmtDate(weightTrend.first.date)}).
+                  </p>
+                )}
+                <WeightSparkline entries={sortedWeightLog.slice(-20)} />
+                <div style={styles.resultsList}>
+                  {[...sortedWeightLog].reverse().map((w) => (
+                    <div key={w.date} style={styles.deviceRow}>
+                      <span style={styles.deviceName}>{fmtDate(w.date)}</span>
+                      <span style={styles.deviceName}>{displayWeight(w.kg, bodyWeightUnit)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
