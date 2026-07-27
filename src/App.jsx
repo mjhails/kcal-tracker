@@ -900,9 +900,14 @@ function trafficColor(pct) {
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
-function last7Dates() {
+// Days from this Monday up to and including today — the array is shorter
+// early in the week (just 1 day on a Monday) and grows to 7 by Sunday, then
+// resets back to a single day the next Monday.
+function currentWeekDates() {
+  const now = new Date();
+  const daysSinceMonday = (now.getDay() + 6) % 7; // Mon=0, Tue=1, ... Sun=6
   const out = [];
-  for (let i = 6; i >= 0; i--) {
+  for (let i = daysSinceMonday; i >= 0; i--) {
     out.push(isoDate(new Date(Date.now() - i * 86400000)));
   }
   return out;
@@ -1015,7 +1020,7 @@ export default function App() {
 
   const refreshOtherDays = useCallback(async () => {
     if (!user) return;
-    const dates = last7Dates().filter((d) => d !== date);
+    const dates = currentWeekDates().filter((d) => d !== date);
     let units = 0;
     let kcal = 0;
     for (const d of dates) {
@@ -1427,7 +1432,7 @@ export default function App() {
   }, [entries]);
 
   const weeklyUnits = useMemo(() => {
-    const withinWindow = last7Dates().includes(date);
+    const withinWindow = currentWeekDates().includes(date);
     const liveTodayUnits = withinWindow
       ? entries.reduce((s, e) => s + (e.units ? (e.units * e.grams) / 100 : 0), 0)
       : 0;
@@ -1435,7 +1440,7 @@ export default function App() {
   }, [otherDaysUnits, entries, date]);
 
   const weeklyKcal = useMemo(() => {
-    const withinWindow = last7Dates().includes(date);
+    const withinWindow = currentWeekDates().includes(date);
     const liveTodayKcal = withinWindow ? totals.kcal : 0;
     return Math.round(otherDaysKcal + liveTodayKcal);
   }, [otherDaysKcal, totals, date]);
@@ -2175,7 +2180,7 @@ export default function App() {
             />
           </div>
           <p style={styles.drinksTone}>{weeklyTone(weeklyUnits, targets.weeklyUnits).msg}</p>
-          <p style={styles.drinksCaption}>Rolling 7 days — a Saturday pint doesn't undo your week.</p>
+          <p style={styles.drinksCaption}>Resets every Monday — a Saturday pint doesn't undo your week.</p>
         </div>
 
         {/* Log */}
