@@ -858,6 +858,10 @@ function kgToStoneLb(kg) {
 function stoneLbToKg(stone, lb) {
   return (stone * LB_PER_STONE + lb) * KG_PER_LB;
 }
+// Sensible upper bound for a weekly weight-loss/gain rate — NHS-style guidance
+// tops out around here for sustainable loss. Used to hard-cap the calorie
+// calculator's rate input, not just suggest it.
+const MAX_LOSS_LB_PER_WEEK = 2;
 function displayWeight(kg, unit) {
   if (unit === "kg") return `${kg.toFixed(1)} kg`;
   const { stone, lb } = kgToStoneLb(kg);
@@ -956,6 +960,17 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
+  const [calcSex, setCalcSex] = useState("female"); // 'male' | 'female'
+  const [calcAge, setCalcAge] = useState("");
+  const [calcHeight, setCalcHeight] = useState(""); // cm
+  const [calcWeightUnit, setCalcWeightUnit] = useState("kg"); // 'kg' | 'stone'
+  const [calcWeightKg, setCalcWeightKg] = useState("");
+  const [calcWeightStone, setCalcWeightStone] = useState("");
+  const [calcWeightLb, setCalcWeightLb] = useState("");
+  const [calcActivity, setCalcActivity] = useState("moderate");
+  const [calcGoal, setCalcGoal] = useState("maintain"); // 'lose' | 'maintain' | 'gain'
+  const [calcRate, setCalcRate] = useState(""); // weekly rate — kg if calcWeightUnit is kg, lb if stone
   const [showMealLibrary, setShowMealLibrary] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState("");
   const [query, setQuery] = useState("");
@@ -1173,6 +1188,18 @@ export default function App() {
     setWeightEntryDate(newDate);
     loadWeightInputsForDate(newDate);
     setWeightMsg("");
+  }
+
+  // Prefills the calculator's weight field from the most recent weigh-in, if any
+  function openCalculator() {
+    setShowCalc(true);
+    if (weightLog.length > 0) {
+      const latestKg = [...weightLog].sort((a, b) => (a.date < b.date ? -1 : 1)).slice(-1)[0].kg;
+      setCalcWeightKg(String(latestKg));
+      const { stone, lb } = kgToStoneLb(latestKg);
+      setCalcWeightStone(String(stone));
+      setCalcWeightLb(String(lb));
+    }
   }
 
   // How much has been lost (positive) or gained (negative) as of the most recent entry
@@ -1533,6 +1560,36 @@ export default function App() {
       deltaKg: Math.round((last.kg - first.kg) * 10) / 10,
     };
   }, [sortedWeightLog, startingWeightKg, startingWeightDate]);
+
+  // Hard cap on the weekly rate input — 2lb/week either as kg or lb depending on unit
+  const calcMaxRate = calcWeightUnit === "kg" ? Math.round(MAX_LOSS_LB_PER_WEEK * KG_PER_LB * 100) / 100 : MAX_LOSS_LB_PER_WEEK;
+
+  const calcWeightKgValue = useMemo(() => {
+    if (calcWeightUnit === "kg") return parseFloat(calcWeightKg) || 0;
+    return stoneLbToKg(parseFloat(calcWeightStone) || 0, parseFloat(calcWeightLb) || 0);
+  }, [calcWeightUnit, calcWeightKg, calcWeightStone, calcWeightLb]);
+
+  // Mifflin-St Jeor BMR × activity factor, then adjusted for a lose/gain rate.
+  // ~7700 kcal is the standard approximation for 1kg of body fat.
+  const calcResult = useMemo(() => {
+    const weightKg = calcWeightKgValue;
+    const heightCm = parseFloat(calcHeight) || 0;
+    const age = parseFloat(calcAge) || 0;
+    if (!weightKg || !heightCm || !age) return null;
+    const bmr =
+      calcSex === "male"
+        ? 10 * weightKg + 6.25 * heightCm - 5 * age + 5
+        : 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+    const activityFactors = { sedentary: 1.2, light: 1.375, moderate: 1.55, very: 1.725, extra: 1.9 };
+    const tdee = bmr * activityFactors[calcActivity];
+    if (calcGoal === "maintain") return Math.round(tdee);
+    const rawRate = parseFloat(calcRate) || 0;
+    const rate = Math.min(Math.max(rawRate, 0), calcMaxRate);
+    const rateKg = calcWeightUnit === "kg" ? rate : rate * KG_PER_LB;
+    const dailyAdjustment = (rateKg * 7700) / 7;
+    const target = calcGoal === "lose" ? tdee - dailyAdjustment : tdee + dailyAdjustment;
+    return Math.round(target);
+  }, [calcWeightKgValue, calcHeight, calcAge, calcSex, calcActivity, calcGoal, calcRate, calcWeightUnit, calcMaxRate]);
 
   const groupedByMeal = useMemo(() => {
     const g = { breakfast: [], lunch: [], dinner: [], snack: [], drinks: [] };
@@ -3199,6 +3256,197 @@ export default function App() {
                 </div>
               ))}
             </div>
+
+            <div style={styles.deviceSection}>
+              <span style={styles.sessionLabel}>CALORIE CALCULATOR</span>
+              {!showCalc ? (
+                <button style={styles.deviceConnectBtn} onClick={openCalculator}>
+                  Calculate my calories
+                </button>
+              ) : (
+                <>
+                  <p style={styles.barcodeHint}>
+                    Works out a daily kcal target from your details — fills in the Kcal field above, everything
+                    else stays as you've set it.
+                  </p>
+
+                  <div style={styles.mealChipRow}>
+                    <button
+                      style={{ ...styles.mealChip, ...(calcSex === "female" ? styles.mealChipActive : {}) }}
+                      onClick={() => setCalcSex("female")}
+                    >
+                      Female
+                    </button>
+                    <button
+                      style={{ ...styles.mealChip, ...(calcSex === "male" ? styles.mealChipActive : {}) }}
+                      onClick={() => setCalcSex("male")}
+                    >
+                      Male
+                    </button>
+                  </div>
+
+                  <div style={styles.customGrid}>
+                    <div>
+                      <label style={styles.fieldLabelSmall}>Age</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        style={styles.textInput}
+                        value={calcAge}
+                        onChange={(ev) => setCalcAge(ev.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label style={styles.fieldLabelSmall}>Height (cm)</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        style={styles.textInput}
+                        value={calcHeight}
+                        onChange={(ev) => setCalcHeight(ev.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={styles.amountLabelRow}>
+                    <label style={styles.fieldLabel}>Current weight</label>
+                    <div style={styles.unitToggle}>
+                      <button
+                        style={{ ...styles.unitToggleBtn, ...(calcWeightUnit === "kg" ? styles.unitToggleBtnActive : {}) }}
+                        onClick={() => setCalcWeightUnit("kg")}
+                      >
+                        kg
+                      </button>
+                      <button
+                        style={{ ...styles.unitToggleBtn, ...(calcWeightUnit === "stone" ? styles.unitToggleBtnActive : {}) }}
+                        onClick={() => setCalcWeightUnit("stone")}
+                      >
+                        st
+                      </button>
+                    </div>
+                  </div>
+                  {calcWeightUnit === "kg" ? (
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      style={styles.gramsInput}
+                      value={calcWeightKg}
+                      onChange={(ev) => setCalcWeightKg(ev.target.value)}
+                    />
+                  ) : (
+                    <div style={styles.customGrid}>
+                      <div>
+                        <label style={styles.fieldLabelSmall}>Stone</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          style={styles.textInput}
+                          value={calcWeightStone}
+                          onChange={(ev) => setCalcWeightStone(ev.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label style={styles.fieldLabelSmall}>Pounds</label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          style={styles.textInput}
+                          value={calcWeightLb}
+                          onChange={(ev) => setCalcWeightLb(ev.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <label style={styles.fieldLabel}>Activity level</label>
+                  <select
+                    style={styles.textInput}
+                    value={calcActivity}
+                    onChange={(ev) => setCalcActivity(ev.target.value)}
+                  >
+                    <option value="sedentary">Sedentary — little or no exercise</option>
+                    <option value="light">Light — exercise 1–3 days/week</option>
+                    <option value="moderate">Moderate — exercise 3–5 days/week</option>
+                    <option value="very">Very active — exercise 6–7 days/week</option>
+                    <option value="extra">Extra active — hard exercise + physical job</option>
+                  </select>
+
+                  <label style={styles.fieldLabel}>Goal</label>
+                  <div style={styles.mealChipRow}>
+                    <button
+                      style={{ ...styles.mealChip, ...(calcGoal === "lose" ? styles.mealChipActive : {}) }}
+                      onClick={() => setCalcGoal("lose")}
+                    >
+                      Lose
+                    </button>
+                    <button
+                      style={{ ...styles.mealChip, ...(calcGoal === "maintain" ? styles.mealChipActive : {}) }}
+                      onClick={() => setCalcGoal("maintain")}
+                    >
+                      Maintain
+                    </button>
+                    <button
+                      style={{ ...styles.mealChip, ...(calcGoal === "gain" ? styles.mealChipActive : {}) }}
+                      onClick={() => setCalcGoal("gain")}
+                    >
+                      Gain
+                    </button>
+                  </div>
+
+                  {calcGoal !== "maintain" && (
+                    <>
+                      <label style={styles.fieldLabelSmall}>
+                        {calcGoal === "lose" ? "Lose" : "Gain"} per week ({calcWeightUnit === "kg" ? "kg" : "lb"}) — max{" "}
+                        {calcMaxRate}
+                        {calcWeightUnit === "kg" ? "kg" : "lb"}
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        style={styles.textInput}
+                        min="0"
+                        max={calcMaxRate}
+                        step={calcWeightUnit === "kg" ? "0.05" : "0.25"}
+                        value={calcRate}
+                        onChange={(ev) => {
+                          const val = ev.target.value;
+                          const num = parseFloat(val);
+                          // Clamp as soon as a value exceeds the cap, rather than waiting for blur —
+                          // the input should never visibly show a rate above the hard 2lb/week limit.
+                          setCalcRate(!isNaN(num) && num > calcMaxRate ? String(calcMaxRate) : val);
+                        }}
+                        onBlur={() => {
+                          const num = parseFloat(calcRate);
+                          if (!isNaN(num)) setCalcRate(String(Math.min(Math.max(num, 0), calcMaxRate)));
+                        }}
+                      />
+                    </>
+                  )}
+
+                  {calcResult && (
+                    <>
+                      <div style={styles.weightHeroCard}>
+                        <div style={styles.weightHeroNumber}>{calcResult} kcal</div>
+                        <div style={styles.weightHeroLabel}>suggested daily target</div>
+                      </div>
+                      {calcResult < 1200 && (
+                        <p style={styles.barcodeHint}>
+                          That's a very low target — worth easing off the rate above, or checking with a GP before
+                          following it.
+                        </p>
+                      )}
+                      <button
+                        style={styles.secondaryBtn}
+                        onClick={() => setTargets({ ...targets, kcal: calcResult })}
+                      >
+                        Use this target
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
             <div style={styles.sheetActions}>
               <button
                 style={styles.primaryBtn}
