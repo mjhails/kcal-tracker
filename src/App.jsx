@@ -32,8 +32,6 @@ import {
   getWeightLog,
   setWeightLog,
   setStartingWeight,
-  getFoodWeights,
-  setFoodWeights,
 } from "./firebase.js";
 import AuthScreen from "./AuthScreen.jsx";
 
@@ -1260,6 +1258,7 @@ export default function App() {
         setCombos(lib.combos || []);
         setCustomFoods(lib.customFoods || []);
         setCustomRecipesState(lib.customRecipes || []);
+        setFoodWeightsState(lib.foodWeights || {});
       } catch (e) {
         console.error("Failed to load shared library", e);
       }
@@ -1360,17 +1359,6 @@ export default function App() {
     };
   }, [user]);
 
-  // Load remembered portion sizes once per signed-in user — private, like weight
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    getFoodWeights(user.uid).then((weights) => {
-      if (!cancelled) setFoodWeightsState(weights || {});
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
 
   const saveEntries = useCallback(
     async (next) => {
@@ -1898,7 +1886,7 @@ export default function App() {
     if (!user || !name || !grams) return;
     const next = { ...foodWeights, [name]: grams };
     setFoodWeightsState(next);
-    setFoodWeights(user.uid, next).catch((e) => console.error("Failed to save remembered weight", e));
+    setSharedLibrary({ foodWeights: next }).catch((e) => console.error("Failed to save remembered weight", e));
   }
 
   function confirmAdd() {

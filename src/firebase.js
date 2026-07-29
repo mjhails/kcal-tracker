@@ -70,17 +70,6 @@ export async function setUserTargets(uid, targets) {
   await setDoc(doc(db, "users", uid), { targets }, { merge: true });
 }
 
-// ---- Remembered portion sizes: last grams logged per food name, so picking a
-// food again defaults to how much you actually eat instead of the generic
-// stock amount. Private per user — you and the other person may eat different
-// amounts of the same food.
-export async function getFoodWeights(uid) {
-  const snap = await getDoc(doc(db, "users", uid));
-  return snap.exists() && snap.data().foodWeights ? snap.data().foodWeights : {};
-}
-export async function setFoodWeights(uid, foodWeights) {
-  await setDoc(doc(db, "users", uid), { foodWeights }, { merge: true });
-}
 
 // ---- Weight log (private to each signed-in user) ----
 export async function getWeightLog(uid) {
@@ -121,13 +110,13 @@ export async function setDay(uid, date, data) {
   await setDoc(doc(db, "users", uid, "days", date), data, { merge: true });
 }
 
-// ---- Shared household data (combos + personal food library) ----
+// ---- Shared household data (combos, custom foods/recipes, remembered portion sizes) ----
 // NOTE: this is intentionally a single shared document, not per-household —
 // fine for two people sharing one app. If you ever open this up to more
 // people, you'd want a proper household/invite system instead.
 export async function getSharedLibrary() {
   const snap = await getDoc(doc(db, "shared", "library"));
-  return snap.exists() ? snap.data() : { combos: [], customFoods: [], customRecipes: [] };
+  return snap.exists() ? snap.data() : { combos: [], customFoods: [], customRecipes: [], foodWeights: {} };
 }
 export async function setSharedLibrary(data) {
   await setDoc(doc(db, "shared", "library"), data, { merge: true });
