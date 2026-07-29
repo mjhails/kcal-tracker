@@ -975,6 +975,8 @@ export default function App() {
   const [otherDaysKcal, setOtherDaysKcal] = useState(0);
   const [combos, setCombos] = useState([]);
   const [customFoods, setCustomFoods] = useState([]);
+  const [customRecipes, setCustomRecipesState] = useState([]);
+  const [saveDestination, setSaveDestination] = useState("quickadd"); // 'quickadd' | 'library'
   const [foodWeights, setFoodWeightsState] = useState({});
   const [sessionAdds, setSessionAdds] = useState([]);
   const [savingCombo, setSavingCombo] = useState(false);
@@ -1257,6 +1259,7 @@ export default function App() {
         if (cancelled) return;
         setCombos(lib.combos || []);
         setCustomFoods(lib.customFoods || []);
+        setCustomRecipesState(lib.customRecipes || []);
       } catch (e) {
         console.error("Failed to load shared library", e);
       }
@@ -1281,6 +1284,15 @@ export default function App() {
       await setSharedLibrary({ customFoods: next });
     } catch (e) {
       console.error("Failed to save custom foods", e);
+    }
+  }, []);
+
+  const saveCustomRecipes = useCallback(async (next) => {
+    setCustomRecipesState(next);
+    try {
+      await setSharedLibrary({ customRecipes: next });
+    } catch (e) {
+      console.error("Failed to save custom recipes", e);
     }
   }, []);
 
@@ -1469,7 +1481,9 @@ export default function App() {
     return [...extraBarcodeHits, ...mine, ...stock].slice(0, 25);
   }, [query, customFoods]);
 
-  const recipeResults = useMemo(() => searchByName(query, RECIPES, (r) => r.name), [query]);
+  const allRecipes = useMemo(() => [...customRecipes, ...RECIPES], [customRecipes]);
+
+  const recipeResults = useMemo(() => searchByName(query, allRecipes, (r) => r.name), [query, allRecipes]);
 
   const comboResults = useMemo(() => searchByName(query, combos, (c) => c.name), [query, combos]);
 
@@ -1479,9 +1493,9 @@ export default function App() {
   }, [libraryQuery, combos]);
 
   const libraryRecipes = useMemo(() => {
-    if (!libraryQuery.trim()) return RECIPES;
-    return searchByName(libraryQuery, RECIPES, (r) => r.name);
-  }, [libraryQuery]);
+    if (!libraryQuery.trim()) return allRecipes;
+    return searchByName(libraryQuery, allRecipes, (r) => r.name);
+  }, [libraryQuery, allRecipes]);
 
   const sortedWeightLog = useMemo(() => [...weightLog].sort((a, b) => (a.date < b.date ? -1 : 1)), [weightLog]);
 
@@ -1529,6 +1543,7 @@ export default function App() {
     setSessionAdds([]);
     setSavingCombo(false);
     setComboName("");
+    setSaveDestination("quickadd");
     setRecipe(null);
     setRecipeServings(1);
     setRecipeGrams({});
@@ -1931,18 +1946,34 @@ export default function App() {
 
   function handleSaveCombo() {
     if (!comboName.trim() || sessionAdds.length === 0) return;
-    const combo = {
-      id: uid(),
-      name: comboName.trim(),
-      items: sessionAdds.map(({ id, meal: m, ...rest }) => rest),
-    };
-    saveCombos([...combos, combo]);
+    if (saveDestination === "library") {
+      const customRecipe = {
+        id: uid(),
+        name: comboName.trim(),
+        defaultMeal: meal,
+        mine: true,
+        items: sessionAdds.map((e) => ({ food: e.name, grams: e.grams })),
+      };
+      saveCustomRecipes([...customRecipes, customRecipe]);
+    } else {
+      const combo = {
+        id: uid(),
+        name: comboName.trim(),
+        items: sessionAdds.map(({ id, meal: m, ...rest }) => rest),
+      };
+      saveCombos([...combos, combo]);
+    }
     setSavingCombo(false);
     setComboName("");
+    setSaveDestination("quickadd");
   }
 
   function deleteCombo(id) {
     saveCombos(combos.filter((c) => c.id !== id));
+  }
+
+  function deleteCustomRecipe(id) {
+    saveCustomRecipes(customRecipes.filter((r) => r.id !== id));
   }
 
   function removeEntry(id) {
@@ -2313,21 +2344,42 @@ export default function App() {
                 </div>
                 {sessionAdds.length >= 2 && !savingCombo && (
                   <button style={styles.customLink} onClick={() => setSavingCombo(true)}>
-                    + Save these {sessionAdds.length} as a quick meal
+                    + Save these {sessionAdds.length} items as a meal
                   </button>
                 )}
                 {savingCombo && (
-                  <div style={styles.saveComboRow}>
-                    <input
-                      autoFocus
-                      style={styles.textInput}
-                      placeholder="e.g. Chicken & rice bowl"
-                      value={comboName}
-                      onChange={(ev) => setComboName(ev.target.value)}
-                    />
-                    <button style={styles.primaryBtnSmall} onClick={handleSaveCombo}>
-                      Save
-                    </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={styles.mealChipRow}>
+                      <button
+                        style={{ ...styles.mealChip, ...(saveDestination === "quickadd" ? styles.mealChipActive : {}) }}
+                        onClick={() => setSaveDestination("quickadd")}
+                      >
+                        Quick add
+                      </button>
+                      <button
+                        style={{ ...styles.mealChip, ...(saveDestination === "library" ? styles.mealChipActive : {}) }}
+                        onClick={() => setSaveDestination("library")}
+                      >
+                        Meal library
+                      </button>
+                    </div>
+                    <p style={styles.barcodeHint}>
+                      {saveDestination === "quickadd"
+                        ? "Shows on your main screen for one-tap logging."
+                        : "Saved as a recipe in your meal library, alongside the built-in ones — not shown on the main screen."}
+                    </p>
+                    <div style={styles.saveComboRow}>
+                      <input
+                        autoFocus
+                        style={styles.textInput}
+                        placeholder="e.g. Chicken & rice bowl"
+                        value={comboName}
+                        onChange={(ev) => setComboName(ev.target.value)}
+                      />
+                      <button style={styles.primaryBtnSmall} onClick={handleSaveCombo}>
+                        Save
+                      </button>
+                    </div>
                   </div>
                 )}
                 <button style={styles.doneBtn} onClick={closeAdd}>
@@ -2455,10 +2507,13 @@ export default function App() {
                     {recipeResults.length > 0 && (
                       <div style={styles.recipeResultsList}>
                         {recipeResults.map((r) => (
-                          <button key={r.name} style={styles.recipeResultRow} onClick={() => selectRecipe(r)}>
+                          <button key={r.id || r.name} style={styles.recipeResultRow} onClick={() => selectRecipe(r)}>
                             <span style={styles.recipeResultName}>{r.name}</span>
                             <span style={styles.recipeResultMeta}>
-                              <span style={styles.recipeTag}>Recipe</span> {r.items.length} ingredients
+                              <span style={r.mine ? styles.comboTag : styles.recipeTag}>
+                                {r.mine ? "Your recipe" : "Recipe"}
+                              </span>{" "}
+                              {r.items.length} ingredients
                             </span>
                           </button>
                         ))}
@@ -3149,15 +3204,32 @@ export default function App() {
             ) : (
               <div style={styles.quickAddsList}>
                 {libraryRecipes.map((r) => (
-                  <button key={r.name} style={styles.libraryRecipeRow} onClick={() => openRecipeFromLibrary(r)}>
-                    <span style={styles.quickAddPlus}>
-                      <BookOpen size={14} />
-                    </span>
-                    <span style={styles.quickAddText}>
-                      <span style={styles.quickAddName}>{r.name}</span>
-                      <span style={styles.quickAddMeta}>{r.items.length} ingredients · tap to adjust & add</span>
-                    </span>
-                  </button>
+                  <div key={r.id || r.name} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <button
+                      style={{ ...styles.libraryRecipeRow, flex: 1, minWidth: 0 }}
+                      onClick={() => openRecipeFromLibrary(r)}
+                    >
+                      <span style={styles.quickAddPlus}>
+                        <BookOpen size={14} />
+                      </span>
+                      <span style={styles.quickAddText}>
+                        <span style={styles.quickAddName}>
+                          {r.name}
+                          {r.mine ? <span style={styles.mineTag}> · yours</span> : null}
+                        </span>
+                        <span style={styles.quickAddMeta}>{r.items.length} ingredients · tap to adjust & add</span>
+                      </span>
+                    </button>
+                    {r.mine && (
+                      <button
+                        style={styles.trashBtn}
+                        onClick={() => deleteCustomRecipe(r.id)}
+                        aria-label={`Delete ${r.name}`}
+                      >
+                        <Trash2 size={15} strokeWidth={1.75} />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

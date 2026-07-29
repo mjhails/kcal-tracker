@@ -127,7 +127,7 @@ export async function setDay(uid, date, data) {
 // people, you'd want a proper household/invite system instead.
 export async function getSharedLibrary() {
   const snap = await getDoc(doc(db, "shared", "library"));
-  return snap.exists() ? snap.data() : { combos: [], customFoods: [] };
+  return snap.exists() ? snap.data() : { combos: [], customFoods: [], customRecipes: [] };
 }
 export async function setSharedLibrary(data) {
   await setDoc(doc(db, "shared", "library"), data, { merge: true });
