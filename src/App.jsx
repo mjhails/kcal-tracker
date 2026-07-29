@@ -987,6 +987,12 @@ export default function App() {
   const [barcodeLoading, setBarcodeLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState("");
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [editAmountMode, setEditAmountMode] = useState("grams");
+  const [editWeightUnit, setEditWeightUnit] = useState("g");
+  const [editGrams, setEditGrams] = useState(100);
+  const [editCount, setEditCount] = useState(1);
+  const [editUnitWeight, setEditUnitWeight] = useState(100);
   const [reminderTimeInput, setReminderTimeInput] = useState("");
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [reminderMsg, setReminderMsg] = useState("");
@@ -1517,6 +1523,9 @@ export default function App() {
 
   const effectiveGrams = amountMode === "count" ? (parseFloat(count) || 0) * (parseFloat(unitWeight) || 0) : parseFloat(grams) || 0;
 
+  const editEffectiveGrams =
+    editAmountMode === "count" ? (parseFloat(editCount) || 0) * (parseFloat(editUnitWeight) || 0) : parseFloat(editGrams) || 0;
+
   function openAdd() {
     setShowAdd(true);
     setQuery("");
@@ -1969,6 +1978,56 @@ export default function App() {
     setSessionAdds((prev) => prev.filter((e) => e.id !== id));
   }
 
+  // Opens the edit sheet for an already-logged entry. Both amount modes end up
+  // storing the same grams total (see confirmAdd), so there's no reliable way
+  // to recover which one was originally used — default to count mode when the
+  // amount is a clean multiple of the food's unit size (the common case, e.g.
+  // "3 eggs"), and to weight mode otherwise.
+  function openEditEntry(entry) {
+    setEditingEntry(entry);
+    const unit = entry.unit;
+    const countGuess = unit ? entry.grams / unit.grams : null;
+    const looksLikeWholeCount = unit && Math.abs(countGuess - Math.round(countGuess)) < 0.01;
+    if (looksLikeWholeCount) {
+      setEditAmountMode("count");
+      setEditUnitWeight(unit.grams);
+      setEditCount(Math.round(countGuess));
+    } else {
+      setEditAmountMode("grams");
+    }
+    setEditWeightUnit(entry.unitLabel === "ml" ? "ml" : "g");
+    setEditGrams(entry.grams);
+  }
+
+  function closeEditEntry() {
+    setEditingEntry(null);
+  }
+
+  // Switching modes mid-edit must carry the current amount over, not reset to
+  // defaults — otherwise silently hitting Save after a toggle would change the
+  // logged amount without the user noticing.
+  function switchEditToCount() {
+    const unit = editingEntry && editingEntry.unit;
+    if (!unit) return;
+    setEditUnitWeight(unit.grams);
+    setEditCount(Math.round((editEffectiveGrams / unit.grams) * 100) / 100);
+    setEditAmountMode("count");
+  }
+
+  function switchEditToGrams() {
+    setEditGrams(Math.round(editEffectiveGrams * 10) / 10);
+    setEditAmountMode("grams");
+  }
+
+  function saveEditEntry() {
+    if (!editingEntry) return;
+    const newGrams = Math.round(editEffectiveGrams * 10) / 10;
+    if (!newGrams || newGrams <= 0) return;
+    const newUnitLabel = editAmountMode === "grams" ? editWeightUnit : "g"; // matches confirmAdd's convention
+    saveEntries(entries.map((e) => (e.id === editingEntry.id ? { ...e, grams: newGrams, unitLabel: newUnitLabel } : e)));
+    setEditingEntry(null);
+  }
+
   function shiftDate(days) {
     const d = new Date(date + "T00:00:00");
     d.setDate(d.getDate() + days);
@@ -2237,15 +2296,21 @@ export default function App() {
                   <div style={styles.log}>
                     {list.map((e) => (
                       <div key={e.id} style={styles.receiptRow}>
-                        <div style={styles.receiptMain}>
-                          <span style={styles.receiptName}>{e.name}</span>
-                          <span style={styles.receiptGrams}>
-                            {e.grams}
-                            {e.unitLabel || "g"}
-                            {e.units ? ` · ${Math.round((e.units * e.grams * 10) / 100) / 10} units` : ""}
-                          </span>
-                        </div>
-                        <span style={styles.receiptKcal}>{Math.round((e.kcal * e.grams) / 100)} kcal</span>
+                        <button
+                          style={styles.receiptMainBtn}
+                          onClick={() => openEditEntry(e)}
+                          aria-label={`Edit ${e.name}`}
+                        >
+                          <div style={styles.receiptMain}>
+                            <span style={styles.receiptName}>{e.name}</span>
+                            <span style={styles.receiptGrams}>
+                              {e.grams}
+                              {e.unitLabel || "g"}
+                              {e.units ? ` · ${Math.round((e.units * e.grams * 10) / 100) / 10} units` : ""}
+                            </span>
+                          </div>
+                          <span style={styles.receiptKcal}>{Math.round((e.kcal * e.grams) / 100)} kcal</span>
+                        </button>
                         <button style={styles.trashBtn} onClick={() => removeEntry(e.id)} aria-label="Remove entry">
                           <Trash2 size={15} strokeWidth={1.75} />
                         </button>
@@ -2836,6 +2901,113 @@ export default function App() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit an already-logged entry's amount */}
+      {editingEntry && (
+        <div style={styles.overlay} onClick={closeEditEntry}>
+          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+            <div style={styles.sheetHeader}>
+              <span style={styles.sheetTitle}>Edit amount</span>
+              <button style={styles.iconBtn} onClick={closeEditEntry}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={styles.pickedPanel}>
+              <div style={styles.pickedName}>{editingEntry.name}</div>
+
+              {editingEntry.unit && (
+                <div style={styles.mealChipRow}>
+                  <button
+                    style={{ ...styles.mealChip, ...(editAmountMode === "count" ? styles.mealChipActive : {}) }}
+                    onClick={switchEditToCount}
+                  >
+                    By quantity
+                  </button>
+                  <button
+                    style={{ ...styles.mealChip, ...(editAmountMode === "grams" ? styles.mealChipActive : {}) }}
+                    onClick={switchEditToGrams}
+                  >
+                    By weight
+                  </button>
+                </div>
+              )}
+
+              {editAmountMode === "count" && editingEntry.unit ? (
+                <>
+                  <label style={styles.fieldLabel}>
+                    Number of {editingEntry.unit.label}
+                    {editCount === 1 ? "" : "s"}
+                  </label>
+                  <input
+                    type="number"
+                    style={styles.gramsInput}
+                    value={editCount}
+                    min="0"
+                    step="1"
+                    onChange={(ev) => setEditCount(ev.target.value)}
+                  />
+                  <label style={styles.fieldLabelSmall}>Weight per {editingEntry.unit.label} (g)</label>
+                  <input
+                    type="number"
+                    style={styles.textInput}
+                    value={editUnitWeight}
+                    onChange={(ev) => setEditUnitWeight(ev.target.value)}
+                  />
+                </>
+              ) : (
+                <>
+                  <div style={styles.amountLabelRow}>
+                    <label style={styles.fieldLabel}>Amount</label>
+                    <div style={styles.unitToggle}>
+                      <button
+                        style={{ ...styles.unitToggleBtn, ...(editWeightUnit === "g" ? styles.unitToggleBtnActive : {}) }}
+                        onClick={() => setEditWeightUnit("g")}
+                      >
+                        g
+                      </button>
+                      <button
+                        style={{ ...styles.unitToggleBtn, ...(editWeightUnit === "ml" ? styles.unitToggleBtnActive : {}) }}
+                        onClick={() => setEditWeightUnit("ml")}
+                      >
+                        ml
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="number"
+                    style={styles.gramsInput}
+                    value={editGrams}
+                    onChange={(ev) => setEditGrams(ev.target.value)}
+                  />
+                </>
+              )}
+
+              <div style={styles.pickedPreview}>
+                {Math.round((editingEntry.kcal * editEffectiveGrams) / 100)} kcal ({Math.round(editEffectiveGrams)}
+                {editAmountMode === "grams" ? editWeightUnit : "g"} total) · P{" "}
+                {Math.round((editingEntry.protein * editEffectiveGrams) / 100)}g · C{" "}
+                {Math.round((editingEntry.carbs * editEffectiveGrams) / 100)}g · F{" "}
+                {Math.round((editingEntry.fat * editEffectiveGrams) / 100)}g
+                {editingEntry.units ? (
+                  <span style={styles.unitsPreview}>
+                    {" "}
+                    · {Math.round((editingEntry.units * editEffectiveGrams * 10) / 100) / 10} units
+                  </span>
+                ) : null}
+              </div>
+              <div style={styles.sheetActions}>
+                <button style={styles.secondaryBtn} onClick={closeEditEntry}>
+                  Cancel
+                </button>
+                <button style={styles.primaryBtn} onClick={saveEditEntry}>
+                  Save changes
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -3627,6 +3799,20 @@ const styles = {
     padding: "12px 4px",
     minHeight: 44,
     borderBottom: `1px solid var(--line)`,
+  },
+  receiptMainBtn: {
+    flex: 1,
+    minWidth: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    background: "none",
+    border: "none",
+    textAlign: "left",
+    padding: 0,
+    cursor: "pointer",
+    minHeight: 44,
+    color: "var(--paper)",
   },
   receiptMain: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" },
   receiptName: { fontSize: 14, overflowWrap: "break-word" },
