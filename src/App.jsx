@@ -14,6 +14,9 @@ import {
   Flashlight,
   FlashlightOff,
   Weight,
+  CheckCircle2,
+  Circle,
+  CalendarPlus,
 } from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
@@ -993,6 +996,12 @@ export default function App() {
   const [editGrams, setEditGrams] = useState(100);
   const [editCount, setEditCount] = useState(1);
   const [editUnitWeight, setEditUnitWeight] = useState(100);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [showCopyTo, setShowCopyTo] = useState(false);
+  const [copyToDate, setCopyToDate] = useState("");
+  const [copyToast, setCopyToast] = useState("");
+  const [showCopyToast, setShowCopyToast] = useState(false);
   const [reminderTimeInput, setReminderTimeInput] = useState("");
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [reminderMsg, setReminderMsg] = useState("");
@@ -1301,6 +1310,13 @@ export default function App() {
     }
   }, []);
 
+  // Selecting entries to copy is scoped to whichever day is on screen — drop
+  // the selection if the user navigates to a different day mid-selection
+  useEffect(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, [date]);
+
   // Load targets + today's entries whenever the signed-in user or viewed date changes
   useEffect(() => {
     if (!user) return;
@@ -1462,6 +1478,12 @@ export default function App() {
     const t = setTimeout(() => setShowWeightCelebration(false), 3400);
     return () => clearTimeout(t);
   }, [showWeightCelebration]);
+
+  useEffect(() => {
+    if (!showCopyToast) return;
+    const t = setTimeout(() => setShowCopyToast(false), 2800);
+    return () => clearTimeout(t);
+  }, [showCopyToast]);
 
 
   const results = useMemo(() => {
@@ -2028,6 +2050,52 @@ export default function App() {
     setEditingEntry(null);
   }
 
+  function toggleSelectMode() {
+    setSelectMode((prev) => !prev);
+    setSelectedIds(new Set());
+  }
+
+  function toggleEntrySelected(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function openCopyTo() {
+    if (selectedIds.size === 0) return;
+    setCopyToDate(isoDate(new Date(Date.now() + 86400000))); // default to tomorrow
+    setShowCopyTo(true);
+  }
+
+  // Copies the selected entries to another day, leaving the originals in place.
+  // If the target happens to be the day currently being viewed, goes through
+  // saveEntries so the on-screen log updates immediately; otherwise it's a
+  // background read-modify-write against whatever's already logged that day.
+  async function copySelectedTo(targetDate) {
+    if (!user || selectedIds.size === 0 || !targetDate) return;
+    const toCopy = entries.filter((e) => selectedIds.has(e.id)).map((e) => ({ ...e, id: uid() }));
+    if (toCopy.length === 0) return;
+    try {
+      if (targetDate === date) {
+        await saveEntries([...entries, ...toCopy]);
+      } else {
+        const targetDay = await getDay(user.uid, targetDate);
+        const targetEntries = (targetDay && targetDay.entries) || [];
+        await setDay(user.uid, targetDate, { entries: [...targetEntries, ...toCopy] });
+      }
+      setCopyToast(`Copied ${toCopy.length} item${toCopy.length === 1 ? "" : "s"} to ${fmtDate(targetDate)}.`);
+      setShowCopyToast(true);
+      setShowCopyTo(false);
+      setSelectMode(false);
+      setSelectedIds(new Set());
+    } catch (e) {
+      console.error("Failed to copy entries", e);
+    }
+  }
+
   function shiftDate(days) {
     const d = new Date(date + "T00:00:00");
     d.setDate(d.getDate() + days);
@@ -2076,6 +2144,15 @@ export default function App() {
           <div>
             <div style={styles.celebrationTitle}>Milestone reached!</div>
             <div style={styles.celebrationSub}>{weightCelebrationText}</div>
+          </div>
+        </div>
+      )}
+      {showCopyToast && (
+        <div style={styles.celebrationToast} className="celebrate-toast">
+          <span style={styles.celebrationEmoji}>📋</span>
+          <div>
+            <div style={styles.celebrationTitle}>Copied</div>
+            <div style={styles.celebrationSub}>{copyToast}</div>
           </div>
         </div>
       )}
@@ -2264,10 +2341,33 @@ export default function App() {
         {/* Log */}
         <div style={styles.logHeaderRow}>
           <span style={styles.sectionLabel}>LOGGED</span>
-          <button style={styles.addBtn} onClick={openAdd}>
-            <Plus size={16} strokeWidth={2} /> Add food
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {entries.length > 0 && (
+              <button style={styles.deviceConnectBtn} onClick={toggleSelectMode}>
+                {selectMode ? "Cancel" : "Select"}
+              </button>
+            )}
+            <button style={styles.addBtn} onClick={openAdd}>
+              <Plus size={16} strokeWidth={2} /> Add food
+            </button>
+          </div>
         </div>
+
+        {selectMode && (
+          <div style={styles.selectionBar}>
+            <span style={styles.selectionBarText}>
+              {selectedIds.size === 0 ? "Tap items to select" : `${selectedIds.size} selected`}
+            </span>
+            {selectedIds.size > 0 && (
+              <button
+                style={{ ...styles.primaryBtnSmall, display: "flex", alignItems: "center", gap: 6 }}
+                onClick={openCopyTo}
+              >
+                <CalendarPlus size={14} strokeWidth={2} /> Copy to…
+              </button>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <div style={styles.emptyState}>
@@ -2298,9 +2398,15 @@ export default function App() {
                       <div key={e.id} style={styles.receiptRow}>
                         <button
                           style={styles.receiptMainBtn}
-                          onClick={() => openEditEntry(e)}
-                          aria-label={`Edit ${e.name}`}
+                          onClick={() => (selectMode ? toggleEntrySelected(e.id) : openEditEntry(e))}
+                          aria-label={selectMode ? `Select ${e.name}` : `Edit ${e.name}`}
                         >
+                          {selectMode &&
+                            (selectedIds.has(e.id) ? (
+                              <CheckCircle2 size={19} color="var(--sage-deep)" style={{ flexShrink: 0 }} />
+                            ) : (
+                              <Circle size={19} color="var(--muted)" style={{ flexShrink: 0 }} />
+                            ))}
                           <div style={styles.receiptMain}>
                             <span style={styles.receiptName}>{e.name}</span>
                             <span style={styles.receiptGrams}>
@@ -2311,9 +2417,11 @@ export default function App() {
                           </div>
                           <span style={styles.receiptKcal}>{Math.round((e.kcal * e.grams) / 100)} kcal</span>
                         </button>
-                        <button style={styles.trashBtn} onClick={() => removeEntry(e.id)} aria-label="Remove entry">
-                          <Trash2 size={15} strokeWidth={1.75} />
-                        </button>
+                        {!selectMode && (
+                          <button style={styles.trashBtn} onClick={() => removeEntry(e.id)} aria-label="Remove entry">
+                            <Trash2 size={15} strokeWidth={1.75} />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -3007,6 +3115,57 @@ export default function App() {
                   Save changes
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Copy selected logged items to another day, leaving today's untouched */}
+      {showCopyTo && (
+        <div style={styles.overlay} onClick={() => setShowCopyTo(false)}>
+          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+            <div style={styles.sheetHeader}>
+              <span style={styles.sheetTitle}>
+                Copy {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"} to…
+              </span>
+              <button style={styles.iconBtn} onClick={() => setShowCopyTo(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button
+                style={styles.secondaryBtn}
+                onClick={() => copySelectedTo(isoDate(new Date(Date.now() + 86400000)))}
+              >
+                Tomorrow
+              </button>
+              <button
+                style={styles.secondaryBtn}
+                onClick={() => copySelectedTo(isoDate(new Date(Date.now() + 2 * 86400000)))}
+              >
+                Day after tomorrow
+              </button>
+
+              <div style={styles.orDivider}>
+                <span style={styles.orDividerLine} />
+                <span style={styles.orDividerText}>or pick a date</span>
+                <span style={styles.orDividerLine} />
+              </div>
+
+              <input
+                type="date"
+                style={styles.textInput}
+                value={copyToDate}
+                onChange={(ev) => setCopyToDate(ev.target.value)}
+              />
+              <button
+                style={styles.primaryBtn}
+                disabled={!copyToDate}
+                onClick={() => copySelectedTo(copyToDate)}
+              >
+                Copy to this date
+              </button>
             </div>
           </div>
         </div>
@@ -3768,6 +3927,17 @@ const styles = {
     fontWeight: 600,
   },
   logHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "26px 0 10px", gap: 8, flexWrap: "wrap" },
+  selectionBar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+    background: "var(--sage-tint)",
+    borderRadius: 14,
+    padding: "10px 14px",
+    marginBottom: 12,
+  },
+  selectionBarText: { fontSize: 12.5, color: "var(--sage-deep)", fontWeight: 600 },
   sectionLabel: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: "0.14em", color: "var(--muted)" },
   addBtn: {
     display: "flex",
