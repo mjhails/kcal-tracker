@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Circle,
   CalendarPlus,
+  BookmarkPlus,
 } from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
@@ -1016,6 +1017,7 @@ export default function App() {
   const [showCopyTo, setShowCopyTo] = useState(false);
   const [copyToDate, setCopyToDate] = useState("");
   const [copyToMeal, setCopyToMeal] = useState(""); // "" = keep each item's existing meal group
+  const [showSaveSelected, setShowSaveSelected] = useState(false);
   const [copyToast, setCopyToast] = useState("");
   const [showCopyToast, setShowCopyToast] = useState(false);
   const [reminderTimeInput, setReminderTimeInput] = useState("");
@@ -2021,28 +2023,51 @@ export default function App() {
     setSessionAdds((prev) => [...prev, ...newEntries]);
   }
 
-  function handleSaveCombo() {
-    if (!comboName.trim() || sessionAdds.length === 0) return;
+  // Shared save logic behind both "Save these items as a meal" (right after adding
+  // food) and "Save as meal" (picked from already-logged items via Select) — both
+  // just gather a list of entries and hand them here.
+  function saveItemsAsMeal(items, defaultMeal) {
+    if (!comboName.trim() || items.length === 0) return;
     if (saveDestination === "library") {
       const customRecipe = {
         id: uid(),
         name: comboName.trim(),
-        defaultMeal: meal,
+        defaultMeal,
         mine: true,
-        items: sessionAdds.map((e) => ({ food: e.name, grams: e.grams })),
+        items: items.map((e) => ({ food: e.name, grams: e.grams })),
       };
       saveCustomRecipes([...customRecipes, customRecipe]);
     } else {
       const combo = {
         id: uid(),
         name: comboName.trim(),
-        items: sessionAdds.map(({ id, meal: m, ...rest }) => rest),
+        items: items.map(({ id, meal: m, ...rest }) => rest),
       };
       saveCombos([...combos, combo]);
     }
-    setSavingCombo(false);
     setComboName("");
     setSaveDestination("quickadd");
+  }
+
+  function handleSaveCombo() {
+    saveItemsAsMeal(sessionAdds, meal);
+    setSavingCombo(false);
+  }
+
+  function openSaveSelectedAsMeal() {
+    if (selectedIds.size === 0) return;
+    setComboName("");
+    setSaveDestination("quickadd");
+    setShowSaveSelected(true);
+  }
+
+  function handleSaveSelectedAsMeal() {
+    const selected = entries.filter((e) => selectedIds.has(e.id));
+    if (selected.length === 0) return;
+    saveItemsAsMeal(selected, selected[0].meal || meal);
+    setShowSaveSelected(false);
+    setSelectMode(false);
+    setSelectedIds(new Set());
   }
 
   function deleteCombo(id) {
@@ -2422,12 +2447,20 @@ export default function App() {
               {selectedIds.size === 0 ? "Tap items to select" : `${selectedIds.size} selected`}
             </span>
             {selectedIds.size > 0 && (
-              <button
-                style={{ ...styles.primaryBtnSmall, display: "flex", alignItems: "center", gap: 6 }}
-                onClick={openCopyTo}
-              >
-                <CalendarPlus size={14} strokeWidth={2} /> Copy to…
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  style={{ ...styles.secondaryBtnSmall, display: "flex", alignItems: "center", gap: 6 }}
+                  onClick={openSaveSelectedAsMeal}
+                >
+                  <BookmarkPlus size={14} strokeWidth={2} /> Save as meal
+                </button>
+                <button
+                  style={{ ...styles.primaryBtnSmall, display: "flex", alignItems: "center", gap: 6 }}
+                  onClick={openCopyTo}
+                >
+                  <CalendarPlus size={14} strokeWidth={2} /> Copy to…
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -3250,6 +3283,55 @@ export default function App() {
                 onClick={() => copySelectedTo(copyToDate)}
               >
                 Copy to this date
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save already-logged, selected items as a meal — for when you forgot to
+          save it as a quick add / library recipe at the time you logged it */}
+      {showSaveSelected && (
+        <div style={styles.overlay} onClick={() => setShowSaveSelected(false)}>
+          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+            <div style={styles.sheetHeader}>
+              <span style={styles.sheetTitle}>
+                Save {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"} as a meal
+              </span>
+              <button style={styles.iconBtn} onClick={() => setShowSaveSelected(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={styles.mealChipRow}>
+                <button
+                  style={{ ...styles.mealChip, ...(saveDestination === "quickadd" ? styles.mealChipActive : {}) }}
+                  onClick={() => setSaveDestination("quickadd")}
+                >
+                  Quick add
+                </button>
+                <button
+                  style={{ ...styles.mealChip, ...(saveDestination === "library" ? styles.mealChipActive : {}) }}
+                  onClick={() => setSaveDestination("library")}
+                >
+                  Meal library
+                </button>
+              </div>
+              <p style={styles.barcodeHint}>
+                {saveDestination === "quickadd"
+                  ? "Shows on your main screen for one-tap logging."
+                  : "Saved as a recipe in your meal library, alongside the built-in ones — not shown on the main screen."}
+              </p>
+              <input
+                autoFocus
+                style={styles.textInput}
+                placeholder="e.g. Chicken & rice bowl"
+                value={comboName}
+                onChange={(ev) => setComboName(ev.target.value)}
+              />
+              <button style={styles.primaryBtn} disabled={!comboName.trim()} onClick={handleSaveSelectedAsMeal}>
+                Save
               </button>
             </div>
           </div>
@@ -4327,6 +4409,17 @@ const styles = {
     padding: "8px 10px",
   },
   saveComboRow: { display: "flex", gap: 8, marginTop: 2 },
+  secondaryBtnSmall: {
+    background: "var(--bg-card)",
+    color: "var(--paper)",
+    border: "none",
+    borderRadius: 10,
+    padding: "0 16px",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    minHeight: 42,
+  },
   primaryBtnSmall: {
     background: "var(--sage-deep)",
     color: "#FFFFFF",
