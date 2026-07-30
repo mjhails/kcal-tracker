@@ -1015,6 +1015,7 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [showCopyTo, setShowCopyTo] = useState(false);
   const [copyToDate, setCopyToDate] = useState("");
+  const [copyToMeal, setCopyToMeal] = useState(""); // "" = keep each item's existing meal group
   const [copyToast, setCopyToast] = useState("");
   const [showCopyToast, setShowCopyToast] = useState(false);
   const [reminderTimeInput, setReminderTimeInput] = useState("");
@@ -2124,16 +2125,20 @@ export default function App() {
   function openCopyTo() {
     if (selectedIds.size === 0) return;
     setCopyToDate(isoDate(new Date(Date.now() + 86400000))); // default to tomorrow
+    setCopyToMeal(""); // default to keeping each item's existing meal group
     setShowCopyTo(true);
   }
 
-  // Copies the selected entries to another day, leaving the originals in place.
-  // If the target happens to be the day currently being viewed, goes through
-  // saveEntries so the on-screen log updates immediately; otherwise it's a
-  // background read-modify-write against whatever's already logged that day.
+  // Copies the selected entries to another day (optionally re-assigning them all to a
+  // different meal group there), leaving the originals in place. If the target happens
+  // to be the day currently being viewed, goes through saveEntries so the on-screen log
+  // updates immediately; otherwise it's a background read-modify-write against whatever's
+  // already logged that day.
   async function copySelectedTo(targetDate) {
     if (!user || selectedIds.size === 0 || !targetDate) return;
-    const toCopy = entries.filter((e) => selectedIds.has(e.id)).map((e) => ({ ...e, id: uid() }));
+    const toCopy = entries
+      .filter((e) => selectedIds.has(e.id))
+      .map((e) => ({ ...e, id: uid(), meal: copyToMeal || e.meal }));
     if (toCopy.length === 0) return;
     try {
       if (targetDate === date) {
@@ -2143,7 +2148,8 @@ export default function App() {
         const targetEntries = (targetDay && targetDay.entries) || [];
         await setDay(user.uid, targetDate, { entries: [...targetEntries, ...toCopy] });
       }
-      setCopyToast(`Copied ${toCopy.length} item${toCopy.length === 1 ? "" : "s"} to ${fmtDate(targetDate)}.`);
+      const mealSuffix = copyToMeal ? ` (${MEALS.find((m) => m.key === copyToMeal)?.label})` : "";
+      setCopyToast(`Copied ${toCopy.length} item${toCopy.length === 1 ? "" : "s"} to ${fmtDate(targetDate)}${mealSuffix}.`);
       setShowCopyToast(true);
       setShowCopyTo(false);
       setSelectMode(false);
@@ -3191,6 +3197,28 @@ export default function App() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <label style={styles.fieldLabelSmall}>Meal group</label>
+              <div style={styles.mealChipRow}>
+                <button
+                  style={{ ...styles.mealChip, ...(copyToMeal === "" ? styles.mealChipActive : {}) }}
+                  onClick={() => setCopyToMeal("")}
+                >
+                  Keep same
+                </button>
+                {MEALS.map((m) => (
+                  <button
+                    key={m.key}
+                    style={{ ...styles.mealChip, ...(copyToMeal === m.key ? styles.mealChipActive : {}) }}
+                    onClick={() => setCopyToMeal(m.key)}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+
+              <button style={styles.secondaryBtn} onClick={() => copySelectedTo(date)}>
+                Today
+              </button>
               <button
                 style={styles.secondaryBtn}
                 onClick={() => copySelectedTo(isoDate(new Date(Date.now() + 86400000)))}
