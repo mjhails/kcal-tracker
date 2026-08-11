@@ -18,6 +18,7 @@ import {
   Circle,
   CalendarPlus,
   BookmarkPlus,
+  ImageUp,
 } from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
@@ -979,6 +980,8 @@ export default function App() {
   const [grams, setGrams] = useState(100);
   const [customMode, setCustomMode] = useState(false);
   const [customFood, setCustomFood] = useState({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", units: "", barcode: "" });
+  const [labelScanLoading, setLabelScanLoading] = useState(false);
+  const [labelScanNote, setLabelScanNote] = useState("");
   const [meal, setMeal] = useState(defaultMealForNow());
   const [water, setWater] = useState(0);
   const [activity, setActivity] = useState(0);
@@ -1043,6 +1046,7 @@ export default function App() {
   const [weightCelebrationText, setWeightCelebrationText] = useState("");
   const videoRef = useRef(null);
   const readerRef = useRef(null);
+  const labelInputRef = useRef(null);
   const trackRef = useRef(null);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
@@ -1788,6 +1792,72 @@ export default function App() {
     }
   }
 
+  // Best-effort extraction of nutrition numbers from OCR'd text — tuned mainly for
+  // Google's own nutrition card format, with reasonable fallbacks for other layouts.
+  // This is never presented as certain — the person always sees and can correct it.
+  function parseNutritionText(text) {
+    const norm = text.replace(/\r/g, "\n");
+    const findFirst = (patterns) => {
+      for (const p of patterns) {
+        const m = norm.match(p);
+        if (m) return parseFloat(m[1]);
+      }
+      return undefined;
+    };
+
+    const sat = findFirst([/saturated\s*(?:fat)?\D{0,10}(\d+\.?\d*)\s*g/i, /sat\.?\s*fat\D{0,10}(\d+\.?\d*)\s*g/i]);
+
+    // Strip "saturated fat ..." out first so the generic fat pattern below doesn't re-match it
+    const withoutSat = norm.replace(/saturated[^\n]{0,30}/gi, "");
+    const fatMatch = withoutSat.match(/(?:total\s*)?\bfat\D{0,10}(\d+\.?\d*)\s*g/i);
+    const fat = fatMatch ? parseFloat(fatMatch[1]) : undefined;
+
+    const sugar = findFirst([/(?:total\s*)?sugars?\D{0,10}(\d+\.?\d*)\s*g/i]);
+    const carbs = findFirst([/total\s*carb(?:ohydrate)?s?\D{0,10}(\d+\.?\d*)\s*g/i, /carb(?:ohydrate)?s?\D{0,10}(\d+\.?\d*)\s*g/i]);
+    const protein = findFirst([/protein\D{0,10}(\d+\.?\d*)\s*g/i]);
+    const kcal = findFirst([/calories\D{0,10}(\d+)/i, /energy\D{0,15}(\d+)\s*kcal/i, /(\d+)\s*kcal/i]);
+
+    return { kcal, protein, carbs, fat, sat, sugar };
+  }
+
+  async function handleLabelImage(file) {
+    if (!file) return;
+    setLabelScanLoading(true);
+    setLabelScanNote("");
+    try {
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("eng");
+      const {
+        data: { text },
+      } = await worker.recognize(file);
+      await worker.terminate();
+
+      const found = parseNutritionText(text);
+      const anyFound = Object.values(found).some((v) => v !== undefined);
+
+      setCustomFood((prev) => ({
+        ...prev,
+        kcal: found.kcal !== undefined ? String(found.kcal) : prev.kcal,
+        protein: found.protein !== undefined ? String(found.protein) : prev.protein,
+        carbs: found.carbs !== undefined ? String(found.carbs) : prev.carbs,
+        fat: found.fat !== undefined ? String(found.fat) : prev.fat,
+        sat: found.sat !== undefined ? String(found.sat) : prev.sat,
+        sugar: found.sugar !== undefined ? String(found.sugar) : prev.sugar,
+      }));
+
+      setLabelScanNote(
+        anyFound
+          ? "Read from your photo — double-check these numbers before saving, especially if the label showed per-serving rather than per-100g."
+          : "Couldn't confidently read any numbers from that image — worth trying a clearer photo, or just filling it in below."
+      );
+    } catch (e) {
+      console.error("Label scan failed", e);
+      setLabelScanNote("Something went wrong reading that image — try again, or fill it in below.");
+    } finally {
+      setLabelScanLoading(false);
+    }
+  }
+
   async function lookupBarcode(codeOverride) {
     const code = (codeOverride || barcodeInput).trim();
     if (!code) return;
@@ -1805,6 +1875,7 @@ export default function App() {
     setBarcodeLoading(false);
     setBarcodeMode(false);
     setCustomMode(true);
+    setLabelScanNote("");
     setAmountMode("grams");
     setGrams(100);
     setCount(1);
@@ -1963,6 +2034,7 @@ export default function App() {
     setPicked(null);
     setCustomMode(false);
     setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", units: "", barcode: "" });
+    setLabelScanNote("");
     setAmountMode("grams");
     setCount(1);
     setUnitWeight(100);
@@ -2806,6 +2878,7 @@ export default function App() {
                       style={styles.customLink}
                       onClick={() => {
                         setCustomMode(true);
+                        setLabelScanNote("");
                         setAmountMode("grams");
                         setGrams(100);
                         setCount(1);
@@ -2990,6 +3063,36 @@ export default function App() {
                     </span>
                   </div>
                 )}
+                <input
+                  ref={labelInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(ev) => {
+                    const file = ev.target.files && ev.target.files[0];
+                    handleLabelImage(file);
+                    ev.target.value = ""; // allow picking the same file again later
+                  }}
+                />
+                <button
+                  type="button"
+                  style={{ ...styles.secondaryBtn, ...(labelScanLoading ? { opacity: 0.6 } : {}) }}
+                  disabled={labelScanLoading}
+                  onClick={() => labelInputRef.current && labelInputRef.current.click()}
+                >
+                  {labelScanLoading ? (
+                    <>
+                      <Loader2 size={15} className="spin" style={{ marginRight: 6 }} />
+                      Reading label…
+                    </>
+                  ) : (
+                    <>
+                      <ImageUp size={15} strokeWidth={1.75} style={{ marginRight: 6 }} />
+                      Scan a nutrition label or screenshot
+                    </>
+                  )}
+                </button>
+                {labelScanNote && <p style={styles.barcodeHint}>{labelScanNote}</p>}
                 <input
                   style={styles.textInput}
                   placeholder="Food name"
