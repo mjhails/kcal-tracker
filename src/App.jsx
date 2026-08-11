@@ -19,6 +19,7 @@ import {
   CalendarPlus,
   BookmarkPlus,
   ImageUp,
+  Move,
 } from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
@@ -1020,8 +1021,12 @@ export default function App() {
   const [showCopyTo, setShowCopyTo] = useState(false);
   const [copyToDate, setCopyToDate] = useState("");
   const [copyToMeal, setCopyToMeal] = useState(""); // "" = keep each item's existing meal group
+  const [showMoveTo, setShowMoveTo] = useState(false);
+  const [moveToDate, setMoveToDate] = useState("");
+  const [moveToMeal, setMoveToMeal] = useState(""); // "" = keep each item's existing meal group
   const [showSaveSelected, setShowSaveSelected] = useState(false);
   const [copyToast, setCopyToast] = useState("");
+  const [copyToastTitle, setCopyToastTitle] = useState("Copied");
   const [showCopyToast, setShowCopyToast] = useState(false);
   const [reminderTimeInput, setReminderTimeInput] = useState("");
   const [pushSubscribed, setPushSubscribed] = useState(false);
@@ -2246,6 +2251,7 @@ export default function App() {
         await setDay(user.uid, targetDate, { entries: [...targetEntries, ...toCopy] });
       }
       const mealSuffix = copyToMeal ? ` (${MEALS.find((m) => m.key === copyToMeal)?.label})` : "";
+      setCopyToastTitle("Copied");
       setCopyToast(`Copied ${toCopy.length} item${toCopy.length === 1 ? "" : "s"} to ${fmtDate(targetDate)}${mealSuffix}.`);
       setShowCopyToast(true);
       setShowCopyTo(false);
@@ -2253,6 +2259,45 @@ export default function App() {
       setSelectedIds(new Set());
     } catch (e) {
       console.error("Failed to copy entries", e);
+    }
+  }
+
+  function openMoveTo() {
+    if (selectedIds.size === 0) return;
+    setMoveToDate(isoDate(new Date(Date.now() + 86400000))); // default to tomorrow
+    setMoveToMeal(""); // default to keeping each item's existing meal group
+    setShowMoveTo(true);
+  }
+
+  // Moves the selected entries to another day and/or meal group, removing them from
+  // where they currently are — for correcting a mis-logged item rather than duplicating
+  // it. If the target day's write fails partway through, the originals are left in place
+  // rather than removed, so a failure can duplicate at worst, never silently lose data.
+  async function moveSelectedTo(targetDate) {
+    if (!user || selectedIds.size === 0 || !targetDate) return;
+    const toMove = entries
+      .filter((e) => selectedIds.has(e.id))
+      .map((e) => ({ ...e, meal: moveToMeal || e.meal }));
+    if (toMove.length === 0) return;
+    try {
+      if (targetDate === date) {
+        // Same day — just update the selected entries in place (covers a same-day meal-group fix).
+        await saveEntries(entries.map((e) => (selectedIds.has(e.id) ? { ...e, meal: moveToMeal || e.meal } : e)));
+      } else {
+        const targetDay = await getDay(user.uid, targetDate);
+        const targetEntries = (targetDay && targetDay.entries) || [];
+        await setDay(user.uid, targetDate, { entries: [...targetEntries, ...toMove] });
+        await saveEntries(entries.filter((e) => !selectedIds.has(e.id)));
+      }
+      const mealSuffix = moveToMeal ? ` (${MEALS.find((m) => m.key === moveToMeal)?.label})` : "";
+      setCopyToastTitle("Moved");
+      setCopyToast(`Moved ${toMove.length} item${toMove.length === 1 ? "" : "s"} to ${fmtDate(targetDate)}${mealSuffix}.`);
+      setShowCopyToast(true);
+      setShowMoveTo(false);
+      setSelectMode(false);
+      setSelectedIds(new Set());
+    } catch (e) {
+      console.error("Failed to move entries", e);
     }
   }
 
@@ -2309,9 +2354,9 @@ export default function App() {
       )}
       {showCopyToast && (
         <div style={styles.celebrationToast} className="celebrate-toast">
-          <span style={styles.celebrationEmoji}>📋</span>
+          <span style={styles.celebrationEmoji}>{copyToastTitle === "Moved" ? "📦" : "📋"}</span>
           <div>
-            <div style={styles.celebrationTitle}>Copied</div>
+            <div style={styles.celebrationTitle}>{copyToastTitle}</div>
             <div style={styles.celebrationSub}>{copyToast}</div>
           </div>
         </div>
@@ -2519,12 +2564,18 @@ export default function App() {
               {selectedIds.size === 0 ? "Tap items to select" : `${selectedIds.size} selected`}
             </span>
             {selectedIds.size > 0 && (
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8 }}>
                 <button
                   style={{ ...styles.secondaryBtnSmall, display: "flex", alignItems: "center", gap: 6 }}
                   onClick={openSaveSelectedAsMeal}
                 >
                   <BookmarkPlus size={14} strokeWidth={2} /> Save as meal
+                </button>
+                <button
+                  style={{ ...styles.secondaryBtnSmall, display: "flex", alignItems: "center", gap: 6 }}
+                  onClick={openMoveTo}
+                >
+                  <Move size={14} strokeWidth={2} /> Move to…
                 </button>
                 <button
                   style={{ ...styles.primaryBtnSmall, display: "flex", alignItems: "center", gap: 6 }}
@@ -3386,6 +3437,80 @@ export default function App() {
                 onClick={() => copySelectedTo(copyToDate)}
               >
                 Copy to this date
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move selected logged items to another day and/or meal group — unlike Copy,
+          this removes them from where they currently are, for fixing a mis-logged item */}
+      {showMoveTo && (
+        <div style={styles.overlay} onClick={() => setShowMoveTo(false)}>
+          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+            <div style={styles.sheetHeader}>
+              <span style={styles.sheetTitle}>
+                Move {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"} to…
+              </span>
+              <button style={styles.iconBtn} onClick={() => setShowMoveTo(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <label style={styles.fieldLabelSmall}>Meal group</label>
+              <div style={styles.mealChipRow}>
+                <button
+                  style={{ ...styles.mealChip, ...(moveToMeal === "" ? styles.mealChipActive : {}) }}
+                  onClick={() => setMoveToMeal("")}
+                >
+                  Keep same
+                </button>
+                {MEALS.map((m) => (
+                  <button
+                    key={m.key}
+                    style={{ ...styles.mealChip, ...(moveToMeal === m.key ? styles.mealChipActive : {}) }}
+                    onClick={() => setMoveToMeal(m.key)}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+
+              <button style={styles.secondaryBtn} onClick={() => moveSelectedTo(date)}>
+                Today
+              </button>
+              <button
+                style={styles.secondaryBtn}
+                onClick={() => moveSelectedTo(isoDate(new Date(Date.now() + 86400000)))}
+              >
+                Tomorrow
+              </button>
+              <button
+                style={styles.secondaryBtn}
+                onClick={() => moveSelectedTo(isoDate(new Date(Date.now() + 2 * 86400000)))}
+              >
+                Day after tomorrow
+              </button>
+
+              <div style={styles.orDivider}>
+                <span style={styles.orDividerLine} />
+                <span style={styles.orDividerText}>or pick a date</span>
+                <span style={styles.orDividerLine} />
+              </div>
+
+              <input
+                type="date"
+                style={styles.textInput}
+                value={moveToDate}
+                onChange={(ev) => setMoveToDate(ev.target.value)}
+              />
+              <button
+                style={styles.primaryBtn}
+                disabled={!moveToDate}
+                onClick={() => moveSelectedTo(moveToDate)}
+              >
+                Move to this date
               </button>
             </div>
           </div>
@@ -4390,6 +4515,7 @@ const styles = {
   logHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "26px 0 10px", gap: 8, flexWrap: "wrap" },
   selectionBar: {
     display: "flex",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     alignItems: "center",
     gap: 8,
