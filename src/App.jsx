@@ -802,9 +802,9 @@ function searchByName(query, items, nameOf) {
     .map((x) => x.item);
 }
 
-const DEFAULT_TARGETS = { kcal: 2200, protein: 130, carbs: 250, fat: 75, sat: 22, sugar: 65, water: 2.5, weeklyUnits: 14 };
-const NUTRIENT_LABELS = { kcal: "kcal", protein: "protein", carbs: "carbs", fat: "fat", sat: "saturates", sugar: "sugar", water: "water", weeklyUnits: "weekly alcohol units" };
-const UNIT = { kcal: "kcal", protein: "g", carbs: "g", fat: "g", sat: "g", sugar: "g", water: "L", weeklyUnits: "units" };
+const DEFAULT_TARGETS = { kcal: 2200, protein: 130, carbs: 250, fat: 75, sat: 22, sugar: 65, salt: 6, water: 2.5, weeklyUnits: 14 };
+const NUTRIENT_LABELS = { kcal: "kcal", protein: "protein", carbs: "carbs", fat: "fat", sat: "saturates", sugar: "sugar", salt: "salt", water: "water", weeklyUnits: "weekly alcohol units" };
+const UNIT = { kcal: "kcal", protein: "g", carbs: "g", fat: "g", sat: "g", sugar: "g", salt: "g", water: "L", weeklyUnits: "units" };
 const MEALS = [
   { key: "breakfast", label: "Breakfast" },
   { key: "lunch", label: "Lunch" },
@@ -980,7 +980,7 @@ export default function App() {
   const [picked, setPicked] = useState(null);
   const [grams, setGrams] = useState(100);
   const [customMode, setCustomMode] = useState(false);
-  const [customFood, setCustomFood] = useState({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", units: "", barcode: "" });
+  const [customFood, setCustomFood] = useState({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", salt: "", units: "", barcode: "" });
   const [labelScanLoading, setLabelScanLoading] = useState(false);
   const [labelScanNote, setLabelScanNote] = useState("");
   const [meal, setMeal] = useState(defaultMealForNow());
@@ -1479,7 +1479,7 @@ export default function App() {
   );
 
   const totals = useMemo(() => {
-    const t = { kcal: 0, protein: 0, carbs: 0, fat: 0, sat: 0, sugar: 0 };
+    const t = { kcal: 0, protein: 0, carbs: 0, fat: 0, sat: 0, sugar: 0, salt: 0 };
     for (const e of entries) {
       const f = e.grams / 100;
       t.kcal += e.kcal * f;
@@ -1488,6 +1488,7 @@ export default function App() {
       t.fat += e.fat * f;
       t.sat += e.sat * f;
       t.sugar += e.sugar * f;
+      t.salt += (e.salt || 0) * f; // older entries and built-in foods may not carry a salt value
     }
     return t;
   }, [entries]);
@@ -1623,7 +1624,7 @@ export default function App() {
     setPicked(null);
     setGrams(100);
     setCustomMode(false);
-    setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", units: "", barcode: "" });
+    setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", salt: "", units: "", barcode: "" });
     setMeal(defaultMealForNow());
     setAmountMode("grams");
     setCount(1);
@@ -1722,6 +1723,7 @@ export default function App() {
       let fat = n.fat_100g;
       let sat = n["saturated-fat_100g"];
       let sugar = n.sugars_100g;
+      let salt = n.salt_100g;
 
       // Fall back to per-serving figures and compute our own per-100g conversion —
       // common for small servings (sauces, spices) where the database has the label
@@ -1736,6 +1738,7 @@ export default function App() {
           fat = (n.fat_serving ?? 0) * scale;
           sat = (n["saturated-fat_serving"] ?? 0) * scale;
           sugar = (n.sugars_serving ?? 0) * scale;
+          salt = (n.salt_serving ?? 0) * scale;
         }
       }
 
@@ -1749,6 +1752,7 @@ export default function App() {
         fat: Math.round((fat ?? 0) * 10) / 10,
         sat: Math.round((sat ?? 0) * 10) / 10,
         sugar: Math.round((sugar ?? 0) * 10) / 10,
+        salt: Math.round((salt ?? 0) * 100) / 100,
       };
     } catch (e) {
       return null; // offline, API down, or blocked — fall back to manual entry
@@ -1783,6 +1787,8 @@ export default function App() {
       if (kcal === undefined) return null;
 
       const name = [match.brandOwner, match.description].filter(Boolean).join(" — ") || "Scanned item";
+      // USDA reports sodium in mg, not salt — salt (g) = sodium (mg) × 2.5 / 1000, the standard conversion.
+      const sodiumMg = findNutrient("Sodium, Na");
       return {
         name,
         kcal: Math.round(kcal),
@@ -1791,38 +1797,76 @@ export default function App() {
         fat: findNutrient("Total lipid (fat)") ?? 0,
         sat: findNutrient("Fatty acids, total saturated") ?? 0,
         sugar: findNutrient("Sugars, total including NLEA") ?? findNutrient("Sugars, total") ?? 0,
+        salt: sodiumMg !== undefined ? Math.round(((sodiumMg * 2.5) / 1000) * 100) / 100 : 0,
       };
     } catch (e) {
       return null; // offline, API down, key not set up, or rate-limited
     }
   }
 
-  // Best-effort extraction of nutrition numbers from OCR'd text — tuned mainly for
-  // Google's own nutrition card format, with reasonable fallbacks for other layouts.
-  // This is never presented as certain — the person always sees and can correct it.
+  // Best-effort extraction of nutrition numbers from OCR'd text. Handles both simple
+  // single-column cards (e.g. Google's nutrition panel) and the UK "Typical Values"
+  // table format, where "of which saturates"/"of which sugars" phrasing and multi-
+  // column (per 100g / per serving) layouts mean the label and its number often
+  // aren't as close together as a tight, single-line regex expects. Every pattern is
+  // tried first against the text as OCR'd (safer — stays within one line) and only
+  // falls back to a version with line breaks flattened to spaces if that finds
+  // nothing, since photographed tables sometimes split a label from its value across
+  // lines in ways a screenshot never would. This is never presented as certain — the
+  // person always sees and can correct it.
   function parseNutritionText(text) {
     const norm = text.replace(/\r/g, "\n");
+    const flattened = norm.replace(/\n/g, " ");
+    const sources = [norm, flattened];
+    const GAP = "[^\\d\\n]{0,20}"; // label-to-number gap, widened for "of which..." style prefixes
+
     const findFirst = (patterns) => {
-      for (const p of patterns) {
-        const m = norm.match(p);
-        if (m) return parseFloat(m[1]);
+      for (const source of sources) {
+        for (const p of patterns) {
+          const m = source.match(p);
+          if (m) return parseFloat(m[1].replace(",", "."));
+        }
       }
       return undefined;
     };
 
-    const sat = findFirst([/saturated\s*(?:fat)?\D{0,10}(\d+\.?\d*)\s*g/i, /sat\.?\s*fat\D{0,10}(\d+\.?\d*)\s*g/i]);
+    const sat = findFirst([
+      new RegExp(`saturat(?:ed|es)(?:\\s*fat)?${GAP}(\\d+[.,]?\\d*)\\s*g`, "i"),
+      new RegExp(`sat\\.?\\s*fat${GAP}(\\d+[.,]?\\d*)\\s*g`, "i"),
+    ]);
 
-    // Strip "saturated fat ..." out first so the generic fat pattern below doesn't re-match it
-    const withoutSat = norm.replace(/saturated[^\n]{0,30}/gi, "");
-    const fatMatch = withoutSat.match(/(?:total\s*)?\bfat\D{0,10}(\d+\.?\d*)\s*g/i);
-    const fat = fatMatch ? parseFloat(fatMatch[1]) : undefined;
+    // Strip out "...saturat(ed|es)..." first so the generic fat pattern below doesn't re-match it
+    const fatPattern = new RegExp(`(?:total\\s*)?\\bfat${GAP}(\\d+[.,]?\\d*)\\s*g`, "i");
+    let fat;
+    for (const source of sources) {
+      const m = source.replace(/saturat(?:ed|es)[^\n]{0,30}/gi, "").match(fatPattern);
+      if (m) {
+        fat = parseFloat(m[1].replace(",", "."));
+        break;
+      }
+    }
 
-    const sugar = findFirst([/(?:total\s*)?sugars?\D{0,10}(\d+\.?\d*)\s*g/i]);
-    const carbs = findFirst([/total\s*carb(?:ohydrate)?s?\D{0,10}(\d+\.?\d*)\s*g/i, /carb(?:ohydrate)?s?\D{0,10}(\d+\.?\d*)\s*g/i]);
-    const protein = findFirst([/protein\D{0,10}(\d+\.?\d*)\s*g/i]);
+    const sugar = findFirst([new RegExp(`sugars?${GAP}(\\d+[.,]?\\d*)\\s*g`, "i")]);
+    const carbs = findFirst([new RegExp(`carb(?:ohydrate)?s?${GAP}(\\d+[.,]?\\d*)\\s*g`, "i")]);
+    const protein = findFirst([new RegExp(`protein${GAP}(\\d+[.,]?\\d*)\\s*g`, "i")]);
+    const salt = findFirst([new RegExp(`salt${GAP}(\\d+[.,]?\\d*)\\s*g`, "i")]);
     const kcal = findFirst([/calories\D{0,10}(\d+)/i, /energy\D{0,15}(\d+)\s*kcal/i, /(\d+)\s*kcal/i]);
 
-    return { kcal, protein, carbs, fat, sat, sugar };
+    // Alcohol units, only if this looks like a drink label — UK units per 100ml = %ABV ÷ 10,
+    // the same maths the built-in drinks in this app use (e.g. 4.2% ABV → 0.42 units/100ml).
+    const abv = findFirst([/(\d+\.?\d*)\s*%\s*(?:vol|abv)/i, /abv\D{0,10}(\d+\.?\d*)\s*%/i]);
+    const units = abv !== undefined ? Math.round((abv / 10) * 100) / 100 : undefined;
+
+    // Best-effort product name: the first line that reads like a title rather than
+    // nutrition-panel boilerplate or a numbers-heavy table row.
+    const boilerplate =
+      /nutrition|typical values|per\s*100|ingredients|allerg|energy|serving|contains|calories|kcal|\bfat\b|saturat|carbohydrate|\bcarbs?\b|protein|sugars?|\bsalt\b|fibre|abv|vol\b/i;
+    const name = norm
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.length >= 3 && l.length <= 60 && /[a-z]/i.test(l) && !boilerplate.test(l) && (l.match(/\d/g) || []).length < 3);
+
+    return { kcal, protein, carbs, fat, sat, sugar, salt, units, name };
   }
 
   async function handleLabelImage(file) {
@@ -1842,17 +1886,20 @@ export default function App() {
 
       setCustomFood((prev) => ({
         ...prev,
+        name: prev.name || found.name || prev.name, // never overwrite a name already typed in
         kcal: found.kcal !== undefined ? String(found.kcal) : prev.kcal,
         protein: found.protein !== undefined ? String(found.protein) : prev.protein,
         carbs: found.carbs !== undefined ? String(found.carbs) : prev.carbs,
         fat: found.fat !== undefined ? String(found.fat) : prev.fat,
         sat: found.sat !== undefined ? String(found.sat) : prev.sat,
         sugar: found.sugar !== undefined ? String(found.sugar) : prev.sugar,
+        salt: found.salt !== undefined ? String(found.salt) : prev.salt,
+        units: found.units !== undefined ? String(found.units) : prev.units,
       }));
 
       setLabelScanNote(
         anyFound
-          ? "Read from your photo — double-check these numbers before saving, especially if the label showed per-serving rather than per-100g."
+          ? "Read from your photo — double-check these numbers (and the name) before saving, especially if the label showed per-serving rather than per-100g."
           : "Couldn't confidently read any numbers from that image — worth trying a clearer photo, or just filling it in below."
       );
     } catch (e) {
@@ -1896,11 +1943,12 @@ export default function App() {
         fat: String(found.fat),
         sat: String(found.sat),
         sugar: String(found.sugar),
+        salt: found.salt !== undefined ? String(found.salt) : "",
         units: "",
         barcode: code,
       });
     } else {
-      setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", units: "", barcode: code });
+      setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", salt: "", units: "", barcode: code });
     }
   }
 
@@ -2038,7 +2086,7 @@ export default function App() {
     setQuery("");
     setPicked(null);
     setCustomMode(false);
-    setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", units: "", barcode: "" });
+    setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", salt: "", units: "", barcode: "" });
     setLabelScanNote("");
     setAmountMode("grams");
     setCount(1);
@@ -2067,6 +2115,7 @@ export default function App() {
           fat: parseFloat(customFood.fat) || 0,
           sat: parseFloat(customFood.sat) || 0,
           sugar: parseFloat(customFood.sugar) || 0,
+          salt: parseFloat(customFood.salt) || 0,
           units: parseFloat(customFood.units) || 0,
           barcode: customFood.barcode ? customFood.barcode.trim() : "",
         }
@@ -2439,7 +2488,7 @@ export default function App() {
               </span>
             </div>
             <div style={styles.macroList}>
-              {["protein", "carbs", "fat", "sat", "sugar"].map((k) => {
+              {["protein", "carbs", "fat", "sat", "sugar", "salt"].map((k) => {
                 const pct = targets[k] ? totals[k] / targets[k] : 0;
                 return (
                   <div key={k} style={styles.macroRow}>
@@ -3162,7 +3211,7 @@ export default function App() {
                   />
                 </div>
                 <div style={styles.customGrid}>
-                  {["kcal", "protein", "carbs", "fat", "sat", "sugar"].map((k) => (
+                  {["kcal", "protein", "carbs", "fat", "sat", "sugar", "salt"].map((k) => (
                     <div key={k}>
                       <label style={styles.fieldLabelSmall}>{NUTRIENT_LABELS[k]} /100g</label>
                       <input
