@@ -941,7 +941,7 @@ function weeklyKcalTone(consumed, target) {
 function Logo({ size = 38 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="20" cy="20" r="19" fill="#276661" />
+      <circle cx="20" cy="20" r="19" fill="#0D9488" />
       <path
         d="M20 7a13 13 0 1 1-9.19 3.81"
         stroke="#FFFFFF"
@@ -4293,18 +4293,19 @@ const FONT_IMPORT = `
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&display=swap');
 :root {
   --bg: #FFFFFF;
-  --bg-card: #F5F6F3;
-  --paper: #14140F;
-  --muted: #7C8177;
-  --sage: #4F9C96;
-  --sage-deep: #276661;
-  --sage-tint: #E1F1EF;
-  --green: #276661;
-  --amber: #B8923A;
-  --red: #B25848;
-  --line: rgba(20,20,15,0.12);
-  --glass: rgba(255,255,255,0.5);
-  --glass-strong: rgba(255,255,255,0.72);
+  --bg-card: #F0F2F4;
+  --surface: #FFFFFF;
+  --paper: #0E1412;
+  --muted: #6B7280;
+  --sage: #14B8A6;
+  --sage-deep: #0D9488;
+  --sage-tint: #CCFBF1;
+  --green: #0D9488;
+  --amber: #F59E0B;
+  --red: #EF4444;
+  --line: rgba(14,20,18,0.12);
+  --glass: rgba(255,255,255,0.55);
+  --glass-strong: rgba(255,255,255,0.75);
   --glass-border: rgba(255,255,255,0.65);
 }
 *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -4411,12 +4412,9 @@ const styles = {
     minHeight: "100vh",
     width: "100%",
     background:
-      "radial-gradient(at 12% 8%, rgba(79,156,150,0.30) 0, transparent 42%), " +
-      "radial-gradient(at 88% 4%, rgba(225,241,239,0.9) 0, transparent 48%), " +
-      "radial-gradient(at 82% 55%, rgba(39,102,97,0.16) 0, transparent 42%), " +
-      "radial-gradient(at 8% 62%, rgba(184,146,58,0.10) 0, transparent 40%), " +
-      "radial-gradient(at 50% 100%, rgba(79,156,150,0.14) 0, transparent 45%), " +
-      "#FDFDFB",
+      "radial-gradient(at 15% 0%, rgba(20,184,166,0.18) 0, transparent 45%), " +
+      "radial-gradient(at 85% 100%, rgba(13,148,136,0.12) 0, transparent 45%), " +
+      "#FBFCFC",
     backgroundAttachment: "fixed",
     color: "var(--paper)",
     fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -4514,7 +4512,7 @@ const styles = {
     fontWeight: 700,
     letterSpacing: "-0.01em",
     cursor: "pointer",
-    boxShadow: "0 1px 2px rgba(20,20,15,0.06), 0 14px 28px rgba(39,102,97,0.28)",
+    boxShadow: "0 1px 2px rgba(20,20,15,0.06), 0 14px 28px rgba(13,148,136,0.32)",
   },
   iconBtn: {
     background: "var(--glass)",
@@ -4558,8 +4556,8 @@ const styles = {
     whiteSpace: "nowrap",
   },
   card: {
-    background: "var(--bg-card)",
-    boxShadow: "0 1px 2px rgba(20,20,15,0.03), 0 8px 20px rgba(20,20,15,0.04)",
+    background: "var(--surface)",
+    boxShadow: "0 1px 2px rgba(20,20,15,0.04), 0 8px 20px rgba(20,20,15,0.06)",
     borderRadius: 28,
     padding: "24px 22px",
   },
@@ -4611,8 +4609,8 @@ const styles = {
   },
   macroUnit: { color: "var(--muted)", marginLeft: 1 },
   waterCard: {
-    background: "var(--bg-card)",
-    boxShadow: "0 1px 2px rgba(20,20,15,0.03), 0 6px 16px rgba(20,20,15,0.04)",
+    background: "var(--surface)",
+    boxShadow: "0 1px 2px rgba(20,20,15,0.04), 0 6px 16px rgba(20,20,15,0.05)",
     borderRadius: 24,
     padding: "20px 20px",
     marginTop: 16,
