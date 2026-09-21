@@ -941,7 +941,7 @@ function weeklyKcalTone(consumed, target) {
 function Logo({ size = 38 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="20" cy="20" r="19" fill="#18181B" />
+      <circle cx="20" cy="20" r="19" fill="#22D3EE" />
       <path
         d="M20 7a13 13 0 1 1-9.19 3.81"
         stroke="#FFFFFF"
@@ -2464,10 +2464,10 @@ export default function App() {
                 <div
                   style={{
                     ...styles.ring,
-                    background: `conic-gradient(${ringColor} ${ringDeg}deg, rgba(20,20,15,0.07) 0deg)`,
+                    background: `conic-gradient(${ringColor} ${ringDeg}deg, rgba(148,163,197,0.14) 0deg)`,
                   }}
                 >
-                  <div style={styles.ringInner}>
+                  <div className="pulse-glow" style={styles.ringInner}>
                     <span style={styles.ringNum}>{Math.abs(remaining)}</span>
                     <span style={styles.ringUnit}>{remaining >= 0 ? "left today" : "over today"}</span>
                   </div>
@@ -4292,21 +4292,22 @@ export default function App() {
 const FONT_IMPORT = `
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&display=swap');
 :root {
-  --bg: #FFFFFF;
-  --bg-card: #EFEFF1;
-  --surface: #FFFFFF;
-  --paper: #121212;
-  --muted: #6E6E76;
-  --sage: #3F3F46;
-  --sage-deep: #18181B;
-  --sage-tint: #E4E4E7;
-  --green: #18181B;
-  --amber: #52525B;
-  --red: #DC2626;
-  --line: rgba(10,10,10,0.10);
-  --glass: rgba(255,255,255,0.55);
-  --glass-strong: rgba(255,255,255,0.75);
-  --glass-border: rgba(255,255,255,0.65);
+  --bg: #06060A;
+  --bg-card: #14141F;
+  --surface: #101018;
+  --paper: #F1F5F9;
+  --muted: #8B92A8;
+  --sage: #22D3EE;
+  --sage-deep: #06B6D4;
+  --sage-tint: rgba(34,211,238,0.14);
+  --green: #22D3EE;
+  --amber: #FBBF24;
+  --red: #FB4570;
+  --line: rgba(148,163,197,0.16);
+  --glass: rgba(20,20,32,0.55);
+  --glass-strong: rgba(16,16,24,0.8);
+  --glass-border: rgba(148,163,197,0.18);
+  --glow: 0 0 1px rgba(34,211,238,0.9), 0 0 18px rgba(34,211,238,0.45), 0 0 40px rgba(34,211,238,0.2);
 }
 *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { overflow-x: hidden; }
@@ -4319,6 +4320,11 @@ html, body { overflow-x: hidden; }
   100% { transform: translate(-50%, -10px) scale(0.98); opacity: 0; }
 }
 .celebrate-toast { animation: toastIn 2.8s ease forwards; }
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 1px rgba(34,211,238,0.9), 0 0 14px rgba(34,211,238,0.35), 0 0 30px rgba(34,211,238,0.14); }
+  50% { box-shadow: 0 0 1px rgba(34,211,238,1), 0 0 26px rgba(34,211,238,0.65), 0 0 56px rgba(34,211,238,0.3); }
+}
+.pulse-glow { animation: pulseGlow 2.6s ease-in-out infinite; }
 input:focus, button:focus-visible { outline: 2px solid var(--sage-deep); outline-offset: 2px; }
 input, select, textarea { font-size: 16px; }
 button { touch-action: manipulation; }
@@ -4411,7 +4417,11 @@ const styles = {
   app: {
     minHeight: "100vh",
     width: "100%",
-    background: "#FAFAFA",
+    background:
+      "radial-gradient(at 20% 0%, rgba(34,211,238,0.16) 0, transparent 45%), " +
+      "radial-gradient(at 85% 15%, rgba(168,85,247,0.10) 0, transparent 40%), " +
+      "radial-gradient(at 50% 100%, rgba(34,211,238,0.08) 0, transparent 50%), " +
+      "#06060A",
     backgroundAttachment: "fixed",
     color: "var(--paper)",
     fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -4509,7 +4519,7 @@ const styles = {
     fontWeight: 700,
     letterSpacing: "-0.01em",
     cursor: "pointer",
-    boxShadow: "0 1px 2px rgba(10,10,10,0.05), 0 4px 10px rgba(10,10,10,0.10)",
+    boxShadow: "0 0 1px rgba(34,211,238,0.8), 0 0 20px rgba(34,211,238,0.35), 0 4px 14px rgba(0,0,0,0.4)",
   },
   iconBtn: {
     background: "var(--glass)",
@@ -4554,7 +4564,8 @@ const styles = {
   },
   card: {
     background: "var(--surface)",
-    boxShadow: "0 1px 2px rgba(20,20,15,0.04), 0 8px 20px rgba(20,20,15,0.06)",
+    border: "1px solid var(--glass-border)",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.3), 0 16px 40px rgba(0,0,0,0.4)",
     borderRadius: 24,
     padding: "28px 24px",
   },
@@ -4593,7 +4604,7 @@ const styles = {
   macroList: { flex: "1 1 180px", minWidth: 0, display: "flex", flexDirection: "column", gap: 13 },
   macroRow: { display: "flex", alignItems: "center", gap: 8 },
   macroLabel: { width: 62, flexShrink: 0, fontSize: 11.5, color: "var(--muted)", textTransform: "capitalize" },
-  macroBarTrack: { flex: 1, minWidth: 0, height: 6, borderRadius: 3, background: "rgba(20,20,15,0.07)", overflow: "hidden" },
+  macroBarTrack: { flex: 1, minWidth: 0, height: 6, borderRadius: 3, background: "rgba(148,163,197,0.14)", overflow: "hidden" },
   macroBarFill: { height: "100%", borderRadius: 3, transition: "width 0.3s ease, background 0.3s ease" },
   macroVal: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -4607,7 +4618,8 @@ const styles = {
   macroUnit: { color: "var(--muted)", marginLeft: 1 },
   waterCard: {
     background: "var(--surface)",
-    boxShadow: "0 1px 2px rgba(20,20,15,0.04), 0 6px 16px rgba(20,20,15,0.05)",
+    border: "1px solid var(--glass-border)",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.25), 0 10px 28px rgba(0,0,0,0.32)",
     borderRadius: 20,
     padding: "22px 20px",
     marginTop: 20,
@@ -4831,7 +4843,7 @@ const styles = {
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(15,20,17,0.6)",
+    background: "rgba(0,0,0,0.7)",
     display: "flex",
     alignItems: "flex-end",
     justifyContent: "center",
@@ -4842,12 +4854,12 @@ const styles = {
     maxWidth: 480,
     maxHeight: "88dvh",
     overflowY: "auto",
-    background: "rgba(253,253,251,0.96)",
+    background: "rgba(16,16,24,0.94)",
     backdropFilter: "blur(24px)",
     WebkitBackdropFilter: "blur(24px)",
     borderRadius: "28px 28px 0 0",
     padding: "20px 20px calc(20px + env(safe-area-inset-bottom))",
-    border: "none",
+    border: "1px solid rgba(148,163,197,0.14)",
     boxShadow: "0 -8px 30px rgba(20,20,15,0.10)",
   },
   sheetHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
