@@ -2482,16 +2482,11 @@ export default function App() {
             {/* Log */}
             <div style={styles.logHeaderRow}>
               <span style={styles.sectionLabel}>LOGGED</span>
-              <div style={{ display: "flex", gap: 8 }}>
-                {entries.length > 0 && (
-                  <button style={styles.deviceConnectBtn} onClick={toggleSelectMode}>
-                    {selectMode ? "Cancel" : "Select"}
-                  </button>
-                )}
-                <button style={styles.addBtn} onClick={openAdd}>
-                  <Plus size={16} strokeWidth={2} /> Add food
+              {entries.length > 0 && (
+                <button style={styles.deviceConnectBtn} onClick={toggleSelectMode}>
+                  {selectMode ? "Cancel" : "Select"}
                 </button>
-              </div>
+              )}
             </div>
 
             {selectMode && (
@@ -2627,6 +2622,10 @@ export default function App() {
 
         {activeTab === "progress" && (
           <>
+            {/* Nutrition + weekly calories/units grouped into one card — same "label, bar, number"
+                visual grammar throughout, so they read as one connected picture rather than three
+                separate boxes. Water and Weight stay as their own cards since they carry their own
+                controls (quick-add buttons, the sparkline). */}
             <div style={styles.card}>
               <div style={styles.macroList}>
                 {["protein", "carbs", "fat", "sat", "sugar", "salt"].map((k) => {
@@ -2651,51 +2650,90 @@ export default function App() {
                   );
                 })}
               </div>
-            </div>
 
-            {/* This week's calories — a lighter day banks room for a bigger one */}
-            <div style={styles.waterCard}>
-              <div style={styles.waterTop}>
-                <span style={styles.sectionLabel}>THIS WEEK</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <span style={styles.waterReading}>
-                    {weeklyKcal.toLocaleString()}
-                    <span style={styles.macroUnit}> / {(targets.kcal * 7).toLocaleString()} kcal</span>
-                  </span>
-                  <button
-                    style={styles.infoToggleBtn}
-                    onClick={() => toggleInfo("week")}
-                    aria-label={expandedInfo.has("week") ? "Hide detail" : "Show detail"}
-                  >
-                    <ChevronDown
-                      size={16}
-                      style={{
-                        transform: expandedInfo.has("week") ? "rotate(180deg)" : "none",
-                        transition: "transform 0.15s",
-                      }}
-                    />
-                  </button>
+              <div style={styles.deviceSection}>
+                <div style={styles.waterTop}>
+                  <span style={styles.sectionLabel}>THIS WEEK</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <span style={styles.waterReading}>
+                      {weeklyKcal.toLocaleString()}
+                      <span style={styles.macroUnit}> / {(targets.kcal * 7).toLocaleString()} kcal</span>
+                    </span>
+                    <button
+                      style={styles.infoToggleBtn}
+                      onClick={() => toggleInfo("week")}
+                      aria-label={expandedInfo.has("week") ? "Hide detail" : "Show detail"}
+                    >
+                      <ChevronDown
+                        size={16}
+                        style={{
+                          transform: expandedInfo.has("week") ? "rotate(180deg)" : "none",
+                          transition: "transform 0.15s",
+                        }}
+                      />
+                    </button>
+                  </div>
                 </div>
+                <div style={styles.macroBarTrack}>
+                  <div
+                    style={{
+                      ...styles.macroBarFill,
+                      width: `${Math.min(targets.kcal ? weeklyKcal / (targets.kcal * 7) : 0, 1) * 100}%`,
+                      background: weeklyKcalTone(weeklyKcal, targets.kcal * 7).color,
+                    }}
+                  />
+                </div>
+                {expandedInfo.has("week") && (
+                  <>
+                    <p style={styles.drinksTone}>
+                      {targets.kcal * 7 - weeklyKcal >= 0
+                        ? `${(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal spare across the week.`
+                        : `${Math.abs(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal over across the week.`}
+                    </p>
+                    <p style={styles.drinksCaption}>{weeklyKcalTone(weeklyKcal, targets.kcal * 7).msg}</p>
+                  </>
+                )}
               </div>
-              <div style={styles.macroBarTrack}>
-                <div
-                  style={{
-                    ...styles.macroBarFill,
-                    width: `${Math.min(targets.kcal ? weeklyKcal / (targets.kcal * 7) : 0, 1) * 100}%`,
-                    background: weeklyKcalTone(weeklyKcal, targets.kcal * 7).color,
-                  }}
-                />
+
+              <div style={styles.deviceSection}>
+                <div style={styles.waterTop}>
+                  <span style={styles.sectionLabel}>DRINKS THIS WEEK</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <span style={styles.waterReading}>
+                      {weeklyUnits}
+                      <span style={styles.macroUnit}> / {targets.weeklyUnits} units</span>
+                    </span>
+                    <button
+                      style={styles.infoToggleBtn}
+                      onClick={() => toggleInfo("drinks")}
+                      aria-label={expandedInfo.has("drinks") ? "Hide detail" : "Show detail"}
+                    >
+                      <ChevronDown
+                        size={16}
+                        style={{
+                          transform: expandedInfo.has("drinks") ? "rotate(180deg)" : "none",
+                          transition: "transform 0.15s",
+                        }}
+                      />
+                    </button>
+                  </div>
+                </div>
+                <div style={styles.macroBarTrack}>
+                  <div
+                    style={{
+                      ...styles.macroBarFill,
+                      width: `${Math.min(targets.weeklyUnits ? weeklyUnits / targets.weeklyUnits : 0, 1) * 100}%`,
+                      background: weeklyTone(weeklyUnits, targets.weeklyUnits).color,
+                    }}
+                  />
+                </div>
+                {expandedInfo.has("drinks") && (
+                  <>
+                    <p style={styles.drinksTone}>{weeklyTone(weeklyUnits, targets.weeklyUnits).msg}</p>
+                    <p style={styles.drinksCaption}>Resets every Monday — a Saturday pint doesn't undo your week.</p>
+                  </>
+                )}
               </div>
-              {expandedInfo.has("week") && (
-                <>
-                  <p style={styles.drinksTone}>
-                    {targets.kcal * 7 - weeklyKcal >= 0
-                      ? `${(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal spare across the week.`
-                      : `${Math.abs(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal over across the week.`}
-                  </p>
-                  <p style={styles.drinksCaption}>{weeklyKcalTone(weeklyKcal, targets.kcal * 7).msg}</p>
-                </>
-              )}
             </div>
 
             {/* Water */}
@@ -2727,47 +2765,6 @@ export default function App() {
                   + 500ml
                 </button>
               </div>
-            </div>
-
-            {/* Drinks — weekly, not daily, so a weekend drink doesn't read as a bad day */}
-            <div style={styles.waterCard}>
-              <div style={styles.waterTop}>
-                <span style={styles.sectionLabel}>DRINKS THIS WEEK</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <span style={styles.waterReading}>
-                    {weeklyUnits}
-                    <span style={styles.macroUnit}> / {targets.weeklyUnits} units</span>
-                  </span>
-                  <button
-                    style={styles.infoToggleBtn}
-                    onClick={() => toggleInfo("drinks")}
-                    aria-label={expandedInfo.has("drinks") ? "Hide detail" : "Show detail"}
-                  >
-                    <ChevronDown
-                      size={16}
-                      style={{
-                        transform: expandedInfo.has("drinks") ? "rotate(180deg)" : "none",
-                        transition: "transform 0.15s",
-                      }}
-                    />
-                  </button>
-                </div>
-              </div>
-              <div style={styles.macroBarTrack}>
-                <div
-                  style={{
-                    ...styles.macroBarFill,
-                    width: `${Math.min(targets.weeklyUnits ? weeklyUnits / targets.weeklyUnits : 0, 1) * 100}%`,
-                    background: weeklyTone(weeklyUnits, targets.weeklyUnits).color,
-                  }}
-                />
-              </div>
-              {expandedInfo.has("drinks") && (
-                <>
-                  <p style={styles.drinksTone}>{weeklyTone(weeklyUnits, targets.weeklyUnits).msg}</p>
-                  <p style={styles.drinksCaption}>Resets every Monday — a Saturday pint doesn't undo your week.</p>
-                </>
-              )}
             </div>
 
             {/* Weight — condensed summary; full log/backdating/milestones live in the Weight sheet */}
@@ -4561,11 +4558,8 @@ const styles = {
     whiteSpace: "nowrap",
   },
   card: {
-    background: "var(--glass)",
-    backdropFilter: "blur(20px) saturate(180%)",
-    WebkitBackdropFilter: "blur(20px) saturate(180%)",
-    border: `1px solid var(--glass-border)`,
-    boxShadow: "0 1px 2px rgba(20,20,15,0.04), 0 16px 32px rgba(20,20,15,0.06)",
+    background: "var(--bg-card)",
+    boxShadow: "0 1px 2px rgba(20,20,15,0.03), 0 8px 20px rgba(20,20,15,0.04)",
     borderRadius: 28,
     padding: "24px 22px",
   },
@@ -4617,11 +4611,8 @@ const styles = {
   },
   macroUnit: { color: "var(--muted)", marginLeft: 1 },
   waterCard: {
-    background: "var(--glass)",
-    backdropFilter: "blur(20px) saturate(180%)",
-    WebkitBackdropFilter: "blur(20px) saturate(180%)",
-    border: `1px solid var(--glass-border)`,
-    boxShadow: "0 1px 2px rgba(20,20,15,0.04), 0 12px 26px rgba(20,20,15,0.05)",
+    background: "var(--bg-card)",
+    boxShadow: "0 1px 2px rgba(20,20,15,0.03), 0 6px 16px rgba(20,20,15,0.04)",
     borderRadius: 24,
     padding: "20px 20px",
     marginTop: 16,
