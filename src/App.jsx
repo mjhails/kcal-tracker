@@ -1618,14 +1618,16 @@ export default function App() {
   const editEffectiveGrams =
     editAmountMode === "count" ? (parseFloat(editCount) || 0) * (parseFloat(editUnitWeight) || 0) : parseFloat(editGrams) || 0;
 
-  function openAdd() {
+  function openAdd(mealOverride) {
     setShowAdd(true);
     setQuery("");
     setPicked(null);
     setGrams(100);
     setCustomMode(false);
     setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", salt: "", units: "", barcode: "" });
-    setMeal(defaultMealForNow());
+    // Guard against onClick={openAdd} passing the click event itself as mealOverride —
+    // only a genuine meal key should ever override the time-of-day default.
+    setMeal(MEALS.some((m) => m.key === mealOverride) ? mealOverride : defaultMealForNow());
     setAmountMode("grams");
     setCount(1);
     setUnitWeight(100);
@@ -2641,8 +2643,6 @@ export default function App() {
           <div style={styles.emptyState}>
             <Loader2 size={18} className="spin" />
           </div>
-        ) : entries.length === 0 ? (
-          <div style={styles.emptyState}>Nothing logged yet — add your first item for {fmtDate(date).toLowerCase()}.</div>
         ) : (
           MEALS.map(({ key, label }) => {
             const list = groupedByMeal[key];
@@ -2652,11 +2652,16 @@ export default function App() {
               <div key={key} style={styles.mealSection}>
                 <div style={styles.mealHeaderRow}>
                   <span style={styles.mealTitle}>{label}</span>
-                  {list.length > 0 && (
-                    <span style={styles.mealKcal}>
-                      {Math.round(mealKcal)} kcal{mealUnits > 0 ? ` · ${Math.round(mealUnits * 10) / 10} units` : ""}
-                    </span>
-                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {list.length > 0 && (
+                      <span style={styles.mealKcal}>
+                        {Math.round(mealKcal)} kcal{mealUnits > 0 ? ` · ${Math.round(mealUnits * 10) / 10} units` : ""}
+                      </span>
+                    )}
+                    <button style={styles.mealAddBtn} onClick={() => openAdd(key)} aria-label={`Add to ${label}`}>
+                      <Plus size={14} strokeWidth={2.25} />
+                    </button>
+                  </div>
                 </div>
                 {list.length === 0 ? (
                   <div style={styles.mealEmpty}>No items logged</div>
@@ -4544,6 +4549,19 @@ const styles = {
   mealTitle: { fontFamily: "'Manrope', sans-serif", fontSize: 16, fontWeight: 700 },
   mealKcal: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" },
   mealEmpty: { fontSize: 12, color: "var(--muted)", padding: "6px 4px 14px" },
+  mealAddBtn: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "var(--sage-tint)",
+    color: "var(--sage-deep)",
+    border: "none",
+    borderRadius: 999,
+    width: 24,
+    height: 24,
+    flexShrink: 0,
+    cursor: "pointer",
+  },
   mealChipRow: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 },
   mealChip: {
     flex: "1 1 90px",
