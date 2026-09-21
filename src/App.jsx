@@ -20,6 +20,7 @@ import {
   Move,
   Home,
   TrendingUp,
+  ChevronDown,
 } from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
@@ -963,6 +964,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [activeTab, setActiveTab] = useState("today"); // 'today' | 'progress' | 'library' | 'settings'
+  const [expandedInfo, setExpandedInfo] = useState(() => new Set()); // which stat cards show their explanatory line
   const [showCalc, setShowCalc] = useState(false);
   const [calcSex, setCalcSex] = useState("female"); // 'male' | 'female'
   const [calcAge, setCalcAge] = useState("");
@@ -2274,6 +2276,15 @@ export default function App() {
     setSelectedIds(new Set());
   }
 
+  function toggleInfo(key) {
+    setExpandedInfo((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   function toggleEntrySelected(id) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -2427,7 +2438,6 @@ export default function App() {
             <Logo size={32} />
             <h1 style={styles.title}>Kcal Tracker</h1>
           </div>
-          {activeTab === "today" && <p style={styles.tagline}>Log what fits. No perfect days required.</p>}
         </header>
 
         {(activeTab === "today" || activeTab === "progress") && (
@@ -2647,10 +2657,25 @@ export default function App() {
             <div style={styles.waterCard}>
               <div style={styles.waterTop}>
                 <span style={styles.sectionLabel}>THIS WEEK</span>
-                <span style={styles.waterReading}>
-                  {weeklyKcal.toLocaleString()}
-                  <span style={styles.macroUnit}> / {(targets.kcal * 7).toLocaleString()} kcal</span>
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <span style={styles.waterReading}>
+                    {weeklyKcal.toLocaleString()}
+                    <span style={styles.macroUnit}> / {(targets.kcal * 7).toLocaleString()} kcal</span>
+                  </span>
+                  <button
+                    style={styles.infoToggleBtn}
+                    onClick={() => toggleInfo("week")}
+                    aria-label={expandedInfo.has("week") ? "Hide detail" : "Show detail"}
+                  >
+                    <ChevronDown
+                      size={16}
+                      style={{
+                        transform: expandedInfo.has("week") ? "rotate(180deg)" : "none",
+                        transition: "transform 0.15s",
+                      }}
+                    />
+                  </button>
+                </div>
               </div>
               <div style={styles.macroBarTrack}>
                 <div
@@ -2661,12 +2686,16 @@ export default function App() {
                   }}
                 />
               </div>
-              <p style={styles.drinksTone}>
-                {targets.kcal * 7 - weeklyKcal >= 0
-                  ? `${(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal spare across the week.`
-                  : `${Math.abs(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal over across the week.`}
-              </p>
-              <p style={styles.drinksCaption}>{weeklyKcalTone(weeklyKcal, targets.kcal * 7).msg}</p>
+              {expandedInfo.has("week") && (
+                <>
+                  <p style={styles.drinksTone}>
+                    {targets.kcal * 7 - weeklyKcal >= 0
+                      ? `${(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal spare across the week.`
+                      : `${Math.abs(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal over across the week.`}
+                  </p>
+                  <p style={styles.drinksCaption}>{weeklyKcalTone(weeklyKcal, targets.kcal * 7).msg}</p>
+                </>
+              )}
             </div>
 
             {/* Water */}
@@ -2704,10 +2733,25 @@ export default function App() {
             <div style={styles.waterCard}>
               <div style={styles.waterTop}>
                 <span style={styles.sectionLabel}>DRINKS THIS WEEK</span>
-                <span style={styles.waterReading}>
-                  {weeklyUnits}
-                  <span style={styles.macroUnit}> / {targets.weeklyUnits} units</span>
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <span style={styles.waterReading}>
+                    {weeklyUnits}
+                    <span style={styles.macroUnit}> / {targets.weeklyUnits} units</span>
+                  </span>
+                  <button
+                    style={styles.infoToggleBtn}
+                    onClick={() => toggleInfo("drinks")}
+                    aria-label={expandedInfo.has("drinks") ? "Hide detail" : "Show detail"}
+                  >
+                    <ChevronDown
+                      size={16}
+                      style={{
+                        transform: expandedInfo.has("drinks") ? "rotate(180deg)" : "none",
+                        transition: "transform 0.15s",
+                      }}
+                    />
+                  </button>
+                </div>
               </div>
               <div style={styles.macroBarTrack}>
                 <div
@@ -2718,8 +2762,12 @@ export default function App() {
                   }}
                 />
               </div>
-              <p style={styles.drinksTone}>{weeklyTone(weeklyUnits, targets.weeklyUnits).msg}</p>
-              <p style={styles.drinksCaption}>Resets every Monday — a Saturday pint doesn't undo your week.</p>
+              {expandedInfo.has("drinks") && (
+                <>
+                  <p style={styles.drinksTone}>{weeklyTone(weeklyUnits, targets.weeklyUnits).msg}</p>
+                  <p style={styles.drinksCaption}>Resets every Monday — a Saturday pint doesn't undo your week.</p>
+                </>
+              )}
             </div>
 
             {/* Weight — condensed summary; full log/backdating/milestones live in the Weight sheet */}
@@ -3073,10 +3121,7 @@ export default function App() {
 
             <div style={styles.deviceSection}>
               <span style={styles.sessionLabel}>ACCOUNT</span>
-              <p style={styles.barcodeHint}>
-                Signed in as {user.email}. Your targets, log, and weekly view are yours alone — meals you save and
-                foods you add are shared with the other person using this app.
-              </p>
+              <p style={styles.barcodeHint}>Your log is private; saved meals are shared.</p>
               <div style={styles.deviceRow}>
                 <span style={styles.deviceName}>{user.displayName || user.email}</span>
                 <button style={styles.deviceConnectBtn} onClick={handleSignOut}>
@@ -3086,10 +3131,25 @@ export default function App() {
             </div>
 
             <div style={styles.deviceSection}>
-              <span style={styles.sessionLabel}>DAILY REMINDER</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={styles.sessionLabel}>DAILY REMINDER</span>
+                <button
+                  style={styles.infoToggleBtn}
+                  onClick={() => toggleInfo("reminder")}
+                  aria-label={expandedInfo.has("reminder") ? "Hide detail" : "Show detail"}
+                >
+                  <ChevronDown
+                    size={14}
+                    style={{
+                      transform: expandedInfo.has("reminder") ? "rotate(180deg)" : "none",
+                      transition: "transform 0.15s",
+                    }}
+                  />
+                </button>
+              </div>
               <p style={styles.barcodeHint}>
-                Get a push notification if you haven't logged anything by a set time. Add this app to your home
-                screen first for the most reliable delivery.
+                Notifies you if you haven't logged by a set time.
+                {expandedInfo.has("reminder") && " Add this app to your home screen first for the most reliable delivery."}
               </p>
               <input
                 type="time"
@@ -4661,6 +4721,18 @@ const styles = {
     color: "var(--sage-deep)",
     border: "none",
     borderRadius: 999,
+    width: 24,
+    height: 24,
+    flexShrink: 0,
+    cursor: "pointer",
+  },
+  infoToggleBtn: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "none",
+    border: "none",
+    color: "var(--muted)",
     width: 24,
     height: 24,
     flexShrink: 0,
