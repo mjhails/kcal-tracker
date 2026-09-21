@@ -941,7 +941,7 @@ function weeklyKcalTone(consumed, target) {
 function Logo({ size = 38 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="20" cy="20" r="19" fill="#0D9488" />
+      <circle cx="20" cy="20" r="19" fill="#18181B" />
       <path
         d="M20 7a13 13 0 1 1-9.19 3.81"
         stroke="#FFFFFF"
@@ -4293,17 +4293,17 @@ const FONT_IMPORT = `
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&display=swap');
 :root {
   --bg: #FFFFFF;
-  --bg-card: #F0F2F4;
+  --bg-card: #EFEFF1;
   --surface: #FFFFFF;
-  --paper: #0E1412;
-  --muted: #6B7280;
-  --sage: #14B8A6;
-  --sage-deep: #0D9488;
-  --sage-tint: #CCFBF1;
-  --green: #0D9488;
-  --amber: #F59E0B;
-  --red: #EF4444;
-  --line: rgba(14,20,18,0.12);
+  --paper: #121212;
+  --muted: #6E6E76;
+  --sage: #3F3F46;
+  --sage-deep: #18181B;
+  --sage-tint: #E4E4E7;
+  --green: #18181B;
+  --amber: #52525B;
+  --red: #DC2626;
+  --line: rgba(10,10,10,0.10);
   --glass: rgba(255,255,255,0.55);
   --glass-strong: rgba(255,255,255,0.75);
   --glass-border: rgba(255,255,255,0.65);
@@ -4411,14 +4411,11 @@ const styles = {
   app: {
     minHeight: "100vh",
     width: "100%",
-    background:
-      "radial-gradient(at 15% 0%, rgba(20,184,166,0.18) 0, transparent 45%), " +
-      "radial-gradient(at 85% 100%, rgba(13,148,136,0.12) 0, transparent 45%), " +
-      "#FBFCFC",
+    background: "#FAFAFA",
     backgroundAttachment: "fixed",
     color: "var(--paper)",
     fontFamily: "'Plus Jakarta Sans', sans-serif",
-    padding: "max(20px, env(safe-area-inset-top)) 16px calc(88px + env(safe-area-inset-bottom))",
+    padding: "max(20px, env(safe-area-inset-top)) 18px calc(88px + env(safe-area-inset-bottom))",
     overflowX: "hidden",
   },
   shell: { width: "100%", maxWidth: 480, margin: "0 auto" },
@@ -4459,7 +4456,7 @@ const styles = {
   },
   bottomNavBtnActive: { color: "var(--sage-deep)" },
   bottomNavLabel: { fontSize: 10.5, fontWeight: 600 },
-  header: { display: "flex", flexDirection: "column", marginBottom: 4 },
+  header: { display: "flex", flexDirection: "column", marginBottom: 8 },
   headerTop: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
   headerActions: { display: "flex", alignItems: "center", gap: 8 },
   profilePill: {
@@ -4505,14 +4502,14 @@ const styles = {
     background: "var(--sage-deep)",
     color: "#FFFFFF",
     border: "none",
-    borderRadius: 18,
+    borderRadius: 14,
     padding: "15px 0",
     minHeight: 52,
     fontSize: 15,
     fontWeight: 700,
     letterSpacing: "-0.01em",
     cursor: "pointer",
-    boxShadow: "0 1px 2px rgba(20,20,15,0.06), 0 14px 28px rgba(13,148,136,0.32)",
+    boxShadow: "0 1px 2px rgba(10,10,10,0.05), 0 4px 10px rgba(10,10,10,0.10)",
   },
   iconBtn: {
     background: "var(--glass)",
@@ -4531,7 +4528,7 @@ const styles = {
     cursor: "pointer",
     flexShrink: 0,
   },
-  dateNav: { display: "flex", alignItems: "center", gap: 8, margin: "18px 0 16px" },
+  dateNav: { display: "flex", alignItems: "center", gap: 8, margin: "20px 0 22px" },
   navBtn: {
     background: "none",
     border: "none",
@@ -4558,8 +4555,8 @@ const styles = {
   card: {
     background: "var(--surface)",
     boxShadow: "0 1px 2px rgba(20,20,15,0.04), 0 8px 20px rgba(20,20,15,0.06)",
-    borderRadius: 28,
-    padding: "24px 22px",
+    borderRadius: 24,
+    padding: "28px 24px",
   },
   ringRow: { display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" },
   ringCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 },
@@ -4593,7 +4590,7 @@ const styles = {
     fontVariantNumeric: "tabular-nums",
   },
   ringUnit: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, color: "var(--muted)", marginTop: 2, textAlign: "center" },
-  macroList: { flex: "1 1 180px", minWidth: 0, display: "flex", flexDirection: "column", gap: 10 },
+  macroList: { flex: "1 1 180px", minWidth: 0, display: "flex", flexDirection: "column", gap: 13 },
   macroRow: { display: "flex", alignItems: "center", gap: 8 },
   macroLabel: { width: 62, flexShrink: 0, fontSize: 11.5, color: "var(--muted)", textTransform: "capitalize" },
   macroBarTrack: { flex: 1, minWidth: 0, height: 6, borderRadius: 3, background: "rgba(20,20,15,0.07)", overflow: "hidden" },
@@ -4611,9 +4608,9 @@ const styles = {
   waterCard: {
     background: "var(--surface)",
     boxShadow: "0 1px 2px rgba(20,20,15,0.04), 0 6px 16px rgba(20,20,15,0.05)",
-    borderRadius: 24,
-    padding: "20px 20px",
-    marginTop: 16,
+    borderRadius: 20,
+    padding: "22px 20px",
+    marginTop: 20,
   },
   waterTop: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10, gap: 8 },
   waterReading: {
@@ -4637,9 +4634,9 @@ const styles = {
     padding: "8px 4px",
     cursor: "pointer",
   },
-  mealSection: { marginBottom: 22 },
-  quickAddsSection: { marginTop: 8, marginBottom: 24, display: "flex", flexDirection: "column", gap: 10 },
-  quickAddsList: { display: "flex", flexDirection: "column", gap: 8 },
+  mealSection: { marginBottom: 30 },
+  quickAddsSection: { marginTop: 20, marginBottom: 28, display: "flex", flexDirection: "column", gap: 12 },
+  quickAddsList: { display: "flex", flexDirection: "column", gap: 10 },
   quickAddRow: {
     display: "flex",
     alignItems: "center",
@@ -4691,7 +4688,7 @@ const styles = {
     minHeight: 44,
     width: "100%",
   },
-  mealHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, gap: 8 },
+  mealHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10, gap: 8 },
   mealTitle: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 700 },
   mealKcal: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -4744,7 +4741,7 @@ const styles = {
     color: "#FFFFFF",
     fontWeight: 600,
   },
-  logHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "26px 0 10px", gap: 8, flexWrap: "wrap" },
+  logHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "34px 0 16px", gap: 8, flexWrap: "wrap" },
   selectionBar: {
     display: "flex",
     flexWrap: "wrap",
@@ -5208,8 +5205,8 @@ const styles = {
     fontSize: 13.5,
   },
   customForm: { display: "flex", flexDirection: "column", gap: 10 },
-  customGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginTop: 6 },
-  deviceSection: { marginTop: 26, paddingTop: 18, borderTop: `1px solid var(--line)`, display: "flex", flexDirection: "column", gap: 10 },
+  customGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 14, marginTop: 10 },
+  deviceSection: { marginTop: 30, paddingTop: 22, borderTop: `1px solid var(--line)`, display: "flex", flexDirection: "column", gap: 12 },
   weightHeroCard: {
     textAlign: "center",
     padding: "22px 16px",
@@ -5225,7 +5222,7 @@ const styles = {
     color: "var(--sage-deep)",
   },
   weightHeroLabel: { fontSize: 13, color: "var(--muted)", marginTop: 4 },
-  deviceList: { display: "flex", flexDirection: "column", gap: 8 },
+  deviceList: { display: "flex", flexDirection: "column", gap: 10 },
   deviceRow: {
     display: "flex",
     justifyContent: "space-between",
