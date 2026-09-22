@@ -35,6 +35,7 @@ import {
   Bell,
   Smartphone,
   User,
+  ShoppingCart,
 } from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
@@ -834,6 +835,9 @@ const DEVICES = [
   { key: "garmin", name: "Garmin" },
   { key: "samsung_health", name: "Samsung Health" },
 ];
+// Common UK supermarkets — used to bias (not filter) OpenFoodFacts search results
+// toward products tagged as stocked there, per the person's own "stores" setting.
+const SHOPS = ["Aldi", "Tesco", "Sainsbury's", "Asda", "Morrisons", "Lidl", "Waitrose", "Co-op", "M&S"];
 function defaultMealForNow() {
   const h = new Date().getHours();
   if (h < 11) return "breakfast";
@@ -1016,6 +1020,7 @@ export default function App() {
   const [customRecipes, setCustomRecipesState] = useState([]);
   const [saveDestination, setSaveDestination] = useState("quickadd"); // 'quickadd' | 'library'
   const [foodWeights, setFoodWeightsState] = useState({});
+  const [preferredShop, setPreferredShopState] = useState("");
   const [sessionAdds, setSessionAdds] = useState([]);
   const [savingCombo, setSavingCombo] = useState(false);
   const [comboName, setComboName] = useState("");
@@ -1341,6 +1346,7 @@ export default function App() {
         setCustomFoods(lib.customFoods || []);
         setCustomRecipesState(lib.customRecipes || []);
         setFoodWeightsState(lib.foodWeights || {});
+        setPreferredShopState(lib.preferredShop || "");
       } catch (e) {
         console.error("Failed to load shared library", e);
       }
@@ -1867,6 +1873,7 @@ export default function App() {
       sugar: Math.round((sugar ?? 0) * 10) / 10,
       salt: Math.round((salt ?? 0) * 100) / 100,
       servingGrams: servingGrams && servingGrams > 0 ? Math.round(servingGrams * 10) / 10 : null,
+      stores: product.stores || "",
     };
   }
 
@@ -1894,23 +1901,35 @@ export default function App() {
       const res = await fetch(
         `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
           query
-        )}&search_simple=1&json=1&page_size=15&fields=code,product_name,brands,nutriments,serving_quantity,serving_size`
+        )}&search_simple=1&json=1&page_size=20&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,stores`
       );
       if (!res.ok) return [];
       const data = await res.json();
       const products = data.products || [];
       const seen = new Set();
-      const out = [];
+      const all = [];
       for (const p of products) {
         const normalized = normalizeOffProduct(p);
         if (!normalized || !normalized.name || normalized.name === "Scanned item") continue;
         const key = normalized.name.toLowerCase();
         if (seen.has(key)) continue; // OFF often has several near-duplicate entries for the same product
         seen.add(key);
-        out.push(normalized);
-        if (out.length >= 8) break;
+        all.push(normalized);
       }
-      return out;
+      // Bias toward the person's preferred shop when set, without hiding everything
+      // else — OFF's per-product "stores" tagging is community-contributed and
+      // inconsistent (a real Aldi product often just isn't tagged "Aldi"), so this
+      // reorders rather than filters, and only when there's actually a match to sort
+      // by (avoids reshuffling — and losing best-match order — for every search).
+      const shop = preferredShop.trim().toLowerCase();
+      const ranked = shop
+        ? [...all].sort((a, b) => {
+            const aMatch = a.stores.toLowerCase().includes(shop) ? 0 : 1;
+            const bMatch = b.stores.toLowerCase().includes(shop) ? 0 : 1;
+            return aMatch - bMatch;
+          })
+        : all;
+      return ranked.slice(0, 8);
     } catch (e) {
       return []; // offline, API down, or blocked — local/manual results still work
     }
@@ -2332,6 +2351,11 @@ export default function App() {
     const next = { ...foodWeights, [name]: info };
     setFoodWeightsState(next);
     setSharedLibrary({ foodWeights: next }).catch((e) => console.error("Failed to save remembered weight", e));
+  }
+
+  function savePreferredShop(shop) {
+    setPreferredShopState(shop);
+    setSharedLibrary({ preferredShop: shop }).catch((e) => console.error("Failed to save preferred shop", e));
   }
 
   function confirmAdd() {
@@ -3445,6 +3469,38 @@ export default function App() {
               <div style={styles.panelHeaderRow}>
                 <div style={styles.panelTitleRow}>
                   <div style={styles.panelIconBadge}>
+                    <ShoppingCart size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Preferred shop</span>
+                </div>
+              </div>
+              <p style={styles.barcodeHint}>
+                When searching for a food online, results tagged as stocked there are shown first. Coverage varies
+                by product — this nudges the order, it doesn't filter out everything else.
+              </p>
+              <div style={styles.mealChipRow}>
+                <button
+                  style={{ ...styles.mealChip, ...(preferredShop === "" ? styles.mealChipActive : {}) }}
+                  onClick={() => savePreferredShop("")}
+                >
+                  None
+                </button>
+                {SHOPS.map((shop) => (
+                  <button
+                    key={shop}
+                    style={{ ...styles.mealChip, ...(preferredShop === shop ? styles.mealChipActive : {}) }}
+                    onClick={() => savePreferredShop(shop)}
+                  >
+                    {shop}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
                     <Smartphone size={16} strokeWidth={2} />
                   </div>
                   <span style={styles.panelTitle}>Connected devices</span>
@@ -3752,16 +3808,23 @@ export default function App() {
                       <>
                         <span style={{ ...styles.sectionLabel, marginTop: 12, display: "block" }}>FROM OPENFOODFACTS</span>
                         <div style={styles.resultsList}>
-                          {onlineResults.map((p) => (
-                            <button
-                              key={p.barcode || p.name}
-                              style={styles.resultRow}
-                              onClick={() => selectOnlineResult(p)}
-                            >
-                              <span>{p.name}</span>
-                              <span style={styles.resultKcal}>{p.kcal} kcal /100g</span>
-                            </button>
-                          ))}
+                          {onlineResults.map((p) => {
+                            const shopMatch =
+                              preferredShop && p.stores.toLowerCase().includes(preferredShop.toLowerCase());
+                            return (
+                              <button
+                                key={p.barcode || p.name}
+                                style={styles.resultRow}
+                                onClick={() => selectOnlineResult(p)}
+                              >
+                                <span>
+                                  {p.name}
+                                  {shopMatch ? <span style={styles.mineTag}> · {preferredShop}</span> : null}
+                                </span>
+                                <span style={styles.resultKcal}>{p.kcal} kcal /100g</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </>
                     )}
