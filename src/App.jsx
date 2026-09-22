@@ -4463,6 +4463,8 @@ input:focus, button:focus-visible { outline: 2px solid var(--sage-deep); outline
 input, select, textarea { font-size: 16px; }
 button {
   touch-action: manipulation;
+  color: inherit;
+  font-family: inherit;
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease, opacity 0.15s ease;
 }
 button:active { transform: scale(0.97); }
@@ -4651,7 +4653,7 @@ const styles = {
     justifyContent: "center",
     gap: 8,
     width: "100%",
-    background: "linear-gradient(180deg, #38E0F5, var(--sage-deep))",
+    background: "linear-gradient(180deg, var(--sage), var(--sage-deep))",
     color: "#04141A",
     border: "none",
     borderRadius: 999,
@@ -4663,7 +4665,7 @@ const styles = {
     letterSpacing: "-0.01em",
     cursor: "pointer",
     boxShadow:
-      "inset 0 1.5px 0 rgba(255,255,255,0.55), inset 0 -4px 8px rgba(0,20,25,0.3), 0 0 1px rgba(34,211,238,0.9), 0 0 24px rgba(34,211,238,0.45), 0 14px 30px rgba(0,0,0,0.5)",
+      "inset 0 1.5px 0 rgba(255,255,255,0.3), inset 0 -4px 8px rgba(0,20,25,0.3), 0 0 1px rgba(34,211,238,0.5), 0 0 12px rgba(34,211,238,0.2), 0 10px 22px rgba(0,0,0,0.45)",
   },
   iconBtn: {
     background: "var(--glass)",
