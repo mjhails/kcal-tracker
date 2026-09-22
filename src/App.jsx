@@ -1027,6 +1027,8 @@ export default function App() {
   const [recipe, setRecipe] = useState(null);
   const [recipeServings, setRecipeServings] = useState(1);
   const [recipeGrams, setRecipeGrams] = useState({});
+  const [recipeMatches, setRecipeMatches] = useState({}); // ingredient index -> matched shop product
+  const [recipeMatchLoading, setRecipeMatchLoading] = useState(false);
   const [barcodeMode, setBarcodeMode] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
   const [barcodeLoading, setBarcodeLoading] = useState(false);
@@ -1748,7 +1750,36 @@ export default function App() {
       g[i] = it.grams;
     });
     setRecipeGrams(g);
+    setRecipeMatches({});
     if (r.defaultMeal) setMeal(r.defaultMeal);
+  }
+
+  // Looks up each ingredient by its generic name and, where the search turns up a
+  // product actually tagged as stocked at the preferred shop, swaps that ingredient's
+  // name/nutrition in for the generic figure. Explicit action (not automatic on
+  // opening a recipe) because it's one network lookup per ingredient — instant for a
+  // plain recipe, a few seconds once this runs. Ingredients with no shop match (loose
+  // veg, herbs — most aren't on OpenFoodFacts at all) just keep the generic figure.
+  async function matchRecipeToShop() {
+    if (!recipe || !preferredShop.trim()) return;
+    setRecipeMatchLoading(true);
+    const shop = preferredShop.trim().toLowerCase();
+    const results = await Promise.all(recipe.items.map((it) => searchOpenFoodFactsText(it.food)));
+    const matches = {};
+    results.forEach((list, i) => {
+      const hit = list.find((p) => p.stores.toLowerCase().includes(shop));
+      if (hit) matches[i] = hit;
+    });
+    setRecipeMatches(matches);
+    setRecipeMatchLoading(false);
+  }
+
+  function clearRecipeMatch(i) {
+    setRecipeMatches((prev) => {
+      const next = { ...prev };
+      delete next[i];
+      return next;
+    });
   }
 
   function openRecipeFromLibrary(r) {
@@ -1773,7 +1804,21 @@ export default function App() {
   async function confirmRecipe() {
     if (!recipe) return;
     const newEntries = recipe.items
-      .map((it) => findFood(it.food, customFoods))
+      .map((it, i) => {
+        const match = recipeMatches[i];
+        if (!match) return findFood(it.food, customFoods);
+        return {
+          name: match.name,
+          kcal: match.kcal,
+          protein: match.protein,
+          carbs: match.carbs,
+          fat: match.fat,
+          sat: match.sat,
+          sugar: match.sugar,
+          salt: match.salt,
+          barcode: match.barcode || "",
+        };
+      })
       .map((food, i) => (food ? { ...food, id: uid(), grams: parseFloat(recipeGrams[i]) || 0, meal } : null))
       .filter(Boolean);
     if (newEntries.length === 0) return;
@@ -2341,6 +2386,7 @@ export default function App() {
     setUnitWeight(100);
     setGrams(100);
     setRecipe(null);
+    setRecipeMatches({});
     setBarcodeMode(false);
     setBarcodeInput("");
     setWeightUnit(meal === "drinks" ? "ml" : "g");
@@ -3975,17 +4021,48 @@ export default function App() {
                   </div>
                 </div>
 
+                {preferredShop.trim() && (
+                  <button
+                    type="button"
+                    style={{ ...styles.secondaryBtn, marginBottom: 14, ...(recipeMatchLoading ? { opacity: 0.6 } : {}) }}
+                    disabled={recipeMatchLoading}
+                    onClick={matchRecipeToShop}
+                  >
+                    {recipeMatchLoading ? (
+                      <>
+                        <Loader2 size={15} className="spin" style={{ marginRight: 6 }} />
+                        Matching ingredients to {preferredShop}…
+                      </>
+                    ) : (
+                      `Match ingredients to ${preferredShop}`
+                    )}
+                  </button>
+                )}
+
                 <div style={styles.ingredientList}>
                   {recipe.items.map((it, i) => {
-                    const food = findFood(it.food, customFoods);
+                    const match = recipeMatches[i];
+                    const food = match || findFood(it.food, customFoods);
                     if (!food) return null;
                     const g = recipeGrams[i] ?? it.grams;
                     const kcalHere = Math.round((food.kcal * g) / 100);
                     return (
                       <div key={it.food} style={styles.ingredientRow}>
                         <div style={styles.ingredientMain}>
-                          <span style={styles.ingredientName}>{it.food}</span>
+                          <span style={styles.ingredientName}>
+                            {match ? match.name : it.food}
+                            {match ? <span style={styles.mineTag}> · {preferredShop}</span> : null}
+                          </span>
                           <span style={styles.ingredientKcal}>{kcalHere} kcal</span>
+                          {match && (
+                            <button
+                              type="button"
+                              style={{ ...styles.customLink, marginTop: 2, padding: 0, minHeight: 0, fontSize: 11.5 }}
+                              onClick={() => clearRecipeMatch(i)}
+                            >
+                              Use generic "{it.food}" instead
+                            </button>
+                          )}
                         </div>
                         <div style={styles.ingredientAmountRow}>
                           <input
@@ -4004,7 +4081,7 @@ export default function App() {
                 <div style={styles.pickedPreview}>
                   {Math.round(
                     recipe.items.reduce((s, it, i) => {
-                      const food = findFood(it.food, customFoods);
+                      const food = recipeMatches[i] || findFood(it.food, customFoods);
                       const g = recipeGrams[i] ?? it.grams;
                       return s + (food ? (food.kcal * g) / 100 : 0);
                     }, 0)
