@@ -2454,7 +2454,7 @@ export default function App() {
         )}
 
         {activeTab === "today" && (
-          <>
+          <div key="today" className="fade-in">
             <button style={styles.heroAddBtn} onClick={openAdd}>
               <Plus size={18} strokeWidth={2.25} /> Add food
             </button>
@@ -2596,11 +2596,11 @@ export default function App() {
                 <ChevronRight size={18} color="var(--muted)" />
               </button>
             )}
-          </>
+          </div>
         )}
 
         {activeTab === "progress" && (
-          <>
+          <div key="progress" className="fade-in">
             {/* Nutrition + weekly calories/units grouped into one card — same "label, bar, number"
                 visual grammar throughout, so they read as one connected picture rather than three
                 separate boxes. Water and Weight stay as their own cards since they carry their own
@@ -2775,11 +2775,11 @@ export default function App() {
                 </button>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {activeTab === "library" && (
-          <>
+          <div key="library" className="fade-in">
             <div style={styles.searchBox}>
               <Search size={16} color="var(--muted)" />
               <input
@@ -2862,11 +2862,11 @@ export default function App() {
                 ))}
               </div>
             )}
-          </>
+          </div>
         )}
 
         {activeTab === "settings" && (
-          <>
+          <div key="settings" className="fade-in">
             <div style={styles.card}>
               <span style={styles.sessionLabel}>DAILY TARGETS</span>
               <div style={styles.customGrid}>
@@ -3167,7 +3167,7 @@ export default function App() {
               </div>
               {deviceMsg && <p style={styles.deviceMsg}>{deviceMsg}</p>}
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -3209,8 +3209,8 @@ export default function App() {
 
       {/* Add food panel */}
       {showAdd && (
-        <div style={styles.overlay} onClick={closeAdd}>
-          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+        <div style={styles.overlay} className="overlay-anim" onClick={closeAdd}>
+          <div style={styles.sheet} className="sheet-anim" onClick={(ev) => ev.stopPropagation()}>
             <div style={styles.sheetHeader}>
               <span style={styles.sheetTitle}>{customMode ? "Custom food" : recipe ? recipe.name : "Add food"}</span>
               <button style={styles.iconBtn} onClick={closeAdd}>
@@ -3292,7 +3292,7 @@ export default function App() {
             )}
 
             {!customMode && !picked && !recipe && (
-              <>
+              <div key="search" className="fade-in">
                 {barcodeMode ? (
                   <div style={styles.barcodePanel}>
                     <div style={styles.barcodePanelHeader}>
@@ -3464,11 +3464,11 @@ export default function App() {
                     </button>
                   </>
                 )}
-              </>
+              </div>
             )}
 
             {!customMode && picked && !recipe && (
-              <div style={styles.pickedPanel}>
+              <div key="picked" className="fade-in" style={styles.pickedPanel}>
                 <div style={styles.pickedName}>{picked.name}</div>
 
                 <div style={styles.mealChipRow}>
@@ -3562,7 +3562,7 @@ export default function App() {
             )}
 
             {recipe && (
-              <div style={styles.pickedPanel}>
+              <div key="recipe" className="fade-in" style={styles.pickedPanel}>
                 <div style={styles.pickedName}>{recipe.name}</div>
 
                 <div style={styles.servingsRow}>
@@ -3626,7 +3626,7 @@ export default function App() {
             )}
 
             {customMode && (
-              <div style={styles.customForm}>
+              <div key="custom" className="fade-in" style={styles.customForm}>
                 {customFood.barcode && (
                   <div style={styles.barcodeBanner}>
                     <Barcode size={14} color="var(--sage-deep)" />
@@ -3788,8 +3788,8 @@ export default function App() {
 
       {/* Edit an already-logged entry's amount */}
       {editingEntry && (
-        <div style={styles.overlay} onClick={closeEditEntry}>
-          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+        <div style={styles.overlay} className="overlay-anim" onClick={closeEditEntry}>
+          <div style={styles.sheet} className="sheet-anim" onClick={(ev) => ev.stopPropagation()}>
             <div style={styles.sheetHeader}>
               <span style={styles.sheetTitle}>Edit amount</span>
               <button style={styles.iconBtn} onClick={closeEditEntry}>
@@ -3895,8 +3895,8 @@ export default function App() {
 
       {/* Copy selected logged items to another day, leaving today's untouched */}
       {showCopyTo && (
-        <div style={styles.overlay} onClick={() => setShowCopyTo(false)}>
-          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+        <div style={styles.overlay} className="overlay-anim" onClick={() => setShowCopyTo(false)}>
+          <div style={styles.sheet} className="sheet-anim" onClick={(ev) => ev.stopPropagation()}>
             <div style={styles.sheetHeader}>
               <span style={styles.sheetTitle}>
                 Copy {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"} to…
@@ -3969,8 +3969,8 @@ export default function App() {
       {/* Move selected logged items to another day and/or meal group — unlike Copy,
           this removes them from where they currently are, for fixing a mis-logged item */}
       {showMoveTo && (
-        <div style={styles.overlay} onClick={() => setShowMoveTo(false)}>
-          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+        <div style={styles.overlay} className="overlay-anim" onClick={() => setShowMoveTo(false)}>
+          <div style={styles.sheet} className="sheet-anim" onClick={(ev) => ev.stopPropagation()}>
             <div style={styles.sheetHeader}>
               <span style={styles.sheetTitle}>
                 Move {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"} to…
@@ -4043,8 +4043,8 @@ export default function App() {
       {/* Save already-logged, selected items as a meal — for when you forgot to
           save it as a quick add / library recipe at the time you logged it */}
       {showSaveSelected && (
-        <div style={styles.overlay} onClick={() => setShowSaveSelected(false)}>
-          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+        <div style={styles.overlay} className="overlay-anim" onClick={() => setShowSaveSelected(false)}>
+          <div style={styles.sheet} className="sheet-anim" onClick={(ev) => ev.stopPropagation()}>
             <div style={styles.sheetHeader}>
               <span style={styles.sheetTitle}>
                 Save {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"} as a meal
@@ -4092,8 +4092,8 @@ export default function App() {
       {/* Quick Adds — pulled out of the main Today flow into its own popup so the
           page itself stays short; the trigger row is all that lives inline. */}
       {showQuickAdds && (
-        <div style={styles.overlay} onClick={() => setShowQuickAdds(false)}>
-          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+        <div style={styles.overlay} className="overlay-anim" onClick={() => setShowQuickAdds(false)}>
+          <div style={styles.sheet} className="sheet-anim" onClick={(ev) => ev.stopPropagation()}>
             <div style={styles.sheetHeader}>
               <span style={styles.sheetTitle}>Quick Adds</span>
               <button style={styles.iconBtn} onClick={() => setShowQuickAdds(false)}>
@@ -4132,8 +4132,8 @@ export default function App() {
       )}
 
       {showWeight && (
-        <div style={styles.overlay} onClick={() => setShowWeight(false)}>
-          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+        <div style={styles.overlay} className="overlay-anim" onClick={() => setShowWeight(false)}>
+          <div style={styles.sheet} className="sheet-anim" onClick={(ev) => ev.stopPropagation()}>
             <div style={styles.sheetHeader}>
               <span style={styles.sheetTitle}>Weight tracker</span>
               <button style={styles.iconBtn} onClick={() => setShowWeight(false)}>
@@ -4352,9 +4352,29 @@ html, body { overflow-x: hidden; }
   }
 }
 .pulse-glow { animation: pulseGlow 2.6s ease-in-out infinite; }
+@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheetIn {
+  from { transform: translateY(28px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.overlay-anim { animation: overlayIn 0.18s ease both; }
+.sheet-anim { animation: sheetIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeSlideIn 0.22s ease both; }
 input:focus, button:focus-visible { outline: 2px solid var(--sage-deep); outline-offset: 2px; }
 input, select, textarea { font-size: 16px; }
-button { touch-action: manipulation; }
+button {
+  touch-action: manipulation;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease, opacity 0.15s ease;
+}
+button:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
+  .overlay-anim, .sheet-anim, .fade-in, .pulse-glow, button { animation: none !important; transition: none !important; }
+  button:active { transform: none; }
+}
 `;
 
 const styles = {
@@ -4884,7 +4904,7 @@ const styles = {
     color: "var(--paper)",
   },
   receiptMain: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" },
-  receiptName: { fontSize: 14, overflowWrap: "break-word" },
+  receiptName: { fontSize: 14.5, fontWeight: 600, overflowWrap: "break-word" },
   receiptGrams: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--muted)" },
   receiptKcal: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -5207,7 +5227,7 @@ const styles = {
   ingredientAmountRow: { display: "flex", alignItems: "center", gap: 4, flexShrink: 0 },
   ingredientInput: {
     background: "var(--bg-card)",
-    border: "none",
+    border: "1px solid rgba(148,163,197,0.1)",
     borderRadius: 10,
     padding: "8px 8px",
     color: "var(--paper)",
@@ -5215,6 +5235,7 @@ const styles = {
     fontSize: 14,
     width: 64,
     textAlign: "right",
+    boxShadow: "inset 0 2px 3px rgba(0,0,0,0.35)",
   },
   ingredientUnit: { fontSize: 12, color: "var(--muted)" },
   resultKcal: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap", flexShrink: 0 },
@@ -5245,10 +5266,10 @@ const styles = {
     minHeight: 26,
   },
   unitToggleBtnActive: { background: "var(--sage-deep)", color: "#FFFFFF", fontWeight: 600 },
-  fieldLabelSmall: { fontSize: 10.5, color: "var(--muted)", marginBottom: 4, display: "block", textTransform: "capitalize" },
+  fieldLabelSmall: { fontSize: 11.5, fontWeight: 600, color: "var(--muted)", marginBottom: 4, display: "block", textTransform: "capitalize" },
   gramsInput: {
     background: "var(--bg-card)",
-    border: "none",
+    border: "1px solid rgba(148,163,197,0.1)",
     borderRadius: 14,
     padding: "12px 14px",
     color: "var(--paper)",
@@ -5256,6 +5277,7 @@ const styles = {
     fontSize: 16,
     width: "100%",
     boxSizing: "border-box",
+    boxShadow: "inset 0 2px 4px rgba(0,0,0,0.35), inset 0 -1px 0 rgba(255,255,255,0.04)",
   },
   pickedPreview: { fontSize: 12, color: "var(--muted)", marginTop: 10, fontFamily: "'Plus Jakarta Sans', sans-serif" },
   unitsPreview: { color: "var(--sage-deep)", fontWeight: 600 },
@@ -5326,12 +5348,13 @@ const styles = {
   deviceMsg: { fontSize: 12, color: "var(--muted)", lineHeight: 1.5, margin: "2px 2px 0" },
   textInput: {
     background: "var(--bg-card)",
-    border: "none",
+    border: "1px solid rgba(148,163,197,0.1)",
     borderRadius: 14,
     padding: "11px 14px",
     color: "var(--paper)",
     fontSize: 16,
     width: "100%",
     boxSizing: "border-box",
+    boxShadow: "inset 0 2px 4px rgba(0,0,0,0.35), inset 0 -1px 0 rgba(255,255,255,0.04)",
   },
 };
