@@ -1716,13 +1716,25 @@ export default function App() {
     setPicked(f);
     setWeightUnit(guessWeightUnit(f, meal));
     const remembered = foodWeights[f.name];
-    if (f.unit) setUnitWeight(f.unit.grams);
-    if (remembered) {
-      // Last amount actually logged for this food, rather than the generic stock portion
+    // Older saved entries are a plain number (total grams only); newer ones are
+    // an object that also remembers which mode and per-item weight were used.
+    const mem = remembered && typeof remembered === "object" ? remembered : remembered ? { grams: remembered } : null;
+    if (mem && mem.amountMode === "count" && mem.unitWeight) {
+      // Restore the exact quantity + weight-per-item last entered — without this,
+      // re-picking a food always snapped "weight per item" back to the generic
+      // stock value, which skewed the quantity into an odd decimal instead of
+      // showing the round number the user actually typed.
+      setAmountMode("count");
+      setUnitWeight(mem.unitWeight);
+      setCount(mem.count != null ? mem.count : Math.round((mem.grams / mem.unitWeight) * 100) / 100);
+      setGrams(mem.grams);
+    } else if (mem) {
+      if (f.unit) setUnitWeight(f.unit.grams);
       setAmountMode("grams");
-      setGrams(remembered);
-      setCount(f.unit ? Math.round((remembered / f.unit.grams) * 100) / 100 : 1);
+      setGrams(mem.grams);
+      setCount(f.unit ? Math.round((mem.grams / f.unit.grams) * 100) / 100 : 1);
     } else if (f.unit) {
+      setUnitWeight(f.unit.grams);
       setAmountMode("count");
       setCount(1);
       setGrams(f.unit.grams);
@@ -2125,9 +2137,9 @@ export default function App() {
     setWeightUnit(meal === "drinks" ? "ml" : "g");
   }
 
-  function rememberFoodWeight(name, grams) {
-    if (!user || !name || !grams) return;
-    const next = { ...foodWeights, [name]: grams };
+  function rememberFoodWeight(name, info) {
+    if (!user || !name || !info || !info.grams) return;
+    const next = { ...foodWeights, [name]: info };
     setFoodWeightsState(next);
     setSharedLibrary({ foodWeights: next }).catch((e) => console.error("Failed to save remembered weight", e));
   }
@@ -2152,7 +2164,12 @@ export default function App() {
     const entry = { id: uid(), ...base, grams: Math.round(effectiveGrams * 10) / 10, meal, unitLabel };
     saveEntries([...entries, entry]);
     setSessionAdds((prev) => [...prev, entry]);
-    rememberFoodWeight(entry.name, entry.grams);
+    rememberFoodWeight(entry.name, {
+      grams: entry.grams,
+      amountMode,
+      count: amountMode === "count" ? parseFloat(count) || 0 : undefined,
+      unitWeight: amountMode === "count" ? parseFloat(unitWeight) || 0 : undefined,
+    });
     if (customMode) {
       const exists = customFoods.some((f) => f.name.toLowerCase() === base.name.toLowerCase());
       if (!exists) {
