@@ -21,6 +21,11 @@ import {
   Home,
   TrendingUp,
   ChevronDown,
+  Coffee,
+  Sandwich,
+  UtensilsCrossed,
+  Cookie,
+  CupSoda,
 } from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
@@ -807,11 +812,11 @@ const DEFAULT_TARGETS = { kcal: 2200, protein: 130, carbs: 250, fat: 75, sat: 22
 const NUTRIENT_LABELS = { kcal: "kcal", protein: "protein", carbs: "carbs", fat: "fat", sat: "saturates", sugar: "sugar", salt: "salt", water: "water", weeklyUnits: "weekly alcohol units" };
 const UNIT = { kcal: "kcal", protein: "g", carbs: "g", fat: "g", sat: "g", sugar: "g", salt: "g", water: "L", weeklyUnits: "units" };
 const MEALS = [
-  { key: "breakfast", label: "Breakfast" },
-  { key: "lunch", label: "Lunch" },
-  { key: "dinner", label: "Dinner" },
-  { key: "snack", label: "Snacks" },
-  { key: "drinks", label: "Drinks" },
+  { key: "breakfast", label: "Breakfast", icon: Coffee },
+  { key: "lunch", label: "Lunch", icon: Sandwich },
+  { key: "dinner", label: "Dinner", icon: UtensilsCrossed },
+  { key: "snack", label: "Snacks", icon: Cookie },
+  { key: "drinks", label: "Drinks", icon: CupSoda },
 ];
 const DEVICES = [
   { key: "apple_health", name: "Apple Health" },
@@ -2459,8 +2464,9 @@ export default function App() {
               <Plus size={18} strokeWidth={2.25} /> Add food
             </button>
 
-            {/* Ring */}
-            <div style={styles.card}>
+            {/* Ring — a true hero, floating directly on the page rather than boxed in a card */}
+            <div style={styles.ringHero}>
+              <div style={styles.ringHeroGlow} />
               <div style={styles.ringCol}>
                 <div
                   style={{
@@ -2525,14 +2531,19 @@ export default function App() {
                 <Loader2 size={18} className="spin" />
               </div>
             ) : (
-              MEALS.map(({ key, label }) => {
+              MEALS.map(({ key, label, icon: MealIcon }) => {
                 const list = groupedByMeal[key];
                 const mealKcal = list.reduce((s, e) => s + (e.kcal * e.grams) / 100, 0);
                 const mealUnits = list.reduce((s, e) => s + (e.units ? (e.units * e.grams) / 100 : 0), 0);
                 return (
                   <div key={key} style={styles.mealSection}>
                     <div style={styles.mealHeaderRow}>
-                      <span style={styles.mealTitle}>{label}</span>
+                      <div style={styles.mealTitleRow}>
+                        <div style={styles.mealIconBadge}>
+                          <MealIcon size={16} strokeWidth={2} />
+                        </div>
+                        <span style={styles.mealTitle}>{label}</span>
+                      </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         {list.length > 0 && (
                           <span style={styles.mealKcal}>
@@ -4620,22 +4631,41 @@ const styles = {
     padding: "28px 24px",
   },
   ringRow: { display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" },
-  ringCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 },
-  ringCaption: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" },
+  ringHero: {
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    padding: "30px 0 14px",
+  },
+  ringHeroGlow: {
+    position: "absolute",
+    top: -30,
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: 300,
+    height: 300,
+    borderRadius: "50%",
+    background: "radial-gradient(circle, rgba(34,211,238,0.22) 0%, rgba(34,211,238,0.07) 45%, transparent 72%)",
+    pointerEvents: "none",
+    zIndex: 0,
+  },
+  ringCol: { position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, flexShrink: 0 },
+  ringCaption: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" },
   ring: {
-    width: 100,
-    height: 100,
+    width: 172,
+    height: 172,
     borderRadius: "50%",
     flexShrink: 0,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     transition: "background 0.4s ease",
-    filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.5))",
+    filter: "drop-shadow(0 10px 24px rgba(0,0,0,0.55))",
   },
   ringInner: {
-    width: 80,
-    height: 80,
+    width: 138,
+    height: 138,
     borderRadius: "50%",
     background: "var(--glass-strong)",
     boxShadow: "inset 0 0 0 1px var(--glass-border)",
@@ -4646,12 +4676,12 @@ const styles = {
   },
   ringNum: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
-    fontSize: 23,
+    fontSize: 42,
     fontWeight: 800,
-    letterSpacing: "-0.02em",
+    letterSpacing: "-0.03em",
     fontVariantNumeric: "tabular-nums",
   },
-  ringUnit: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, color: "var(--muted)", marginTop: 2, textAlign: "center" },
+  ringUnit: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--muted)", marginTop: 2, textAlign: "center" },
   macroList: { flex: "1 1 180px", minWidth: 0, display: "flex", flexDirection: "column", gap: 13 },
   macroRow: { display: "flex", alignItems: "center", gap: 8 },
   macroLabel: { width: 62, flexShrink: 0, fontSize: 11.5, color: "var(--muted)", textTransform: "capitalize" },
@@ -4698,7 +4728,28 @@ const styles = {
     padding: "8px 4px",
     cursor: "pointer",
   },
-  mealSection: { marginBottom: 30 },
+  mealSection: {
+    marginBottom: 16,
+    background: "var(--surface)",
+    border: "1px solid var(--glass-border)",
+    borderRadius: 20,
+    padding: "16px 18px",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 4px rgba(0,0,0,0.25), 0 10px 24px rgba(0,0,0,0.35)",
+  },
+  mealIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    background: "linear-gradient(160deg, var(--sage-tint), rgba(34,211,238,0.03))",
+    border: "1px solid rgba(34,211,238,0.25)",
+    color: "var(--sage)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    boxShadow: "0 0 10px rgba(34,211,238,0.12)",
+  },
+  mealTitleRow: { display: "flex", alignItems: "center", gap: 12 },
   quickAddsSection: { marginTop: 20, marginBottom: 28, display: "flex", flexDirection: "column", gap: 12 },
   quickAddsTrigger: {
     display: "flex",
@@ -4793,7 +4844,7 @@ const styles = {
     color: "var(--muted)",
     whiteSpace: "nowrap",
   },
-  mealEmpty: { fontSize: 12, color: "var(--muted)", padding: "6px 4px 14px" },
+  mealEmpty: { fontSize: 12, color: "var(--muted)", padding: "2px 2px 0" },
   mealAddBtn: {
     display: "flex",
     alignItems: "center",
