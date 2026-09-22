@@ -26,6 +26,15 @@ import {
   UtensilsCrossed,
   Cookie,
   CupSoda,
+  PieChart,
+  Wine,
+  Droplet,
+  Scale,
+  Target,
+  Calculator,
+  Bell,
+  Smartphone,
+  User,
 } from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
@@ -2536,13 +2545,13 @@ export default function App() {
                 const mealKcal = list.reduce((s, e) => s + (e.kcal * e.grams) / 100, 0);
                 const mealUnits = list.reduce((s, e) => s + (e.units ? (e.units * e.grams) / 100 : 0), 0);
                 return (
-                  <div key={key} style={styles.mealSection}>
-                    <div style={styles.mealHeaderRow}>
-                      <div style={styles.mealTitleRow}>
-                        <div style={styles.mealIconBadge}>
+                  <div key={key} style={styles.panelCard}>
+                    <div style={styles.panelHeaderRow}>
+                      <div style={styles.panelTitleRow}>
+                        <div style={styles.panelIconBadge}>
                           <MealIcon size={16} strokeWidth={2} />
                         </div>
-                        <span style={styles.mealTitle}>{label}</span>
+                        <span style={styles.panelTitle}>{label}</span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         {list.length > 0 && (
@@ -2612,11 +2621,17 @@ export default function App() {
 
         {activeTab === "progress" && (
           <div key="progress" className="fade-in">
-            {/* Nutrition + weekly calories/units grouped into one card — same "label, bar, number"
-                visual grammar throughout, so they read as one connected picture rather than three
-                separate boxes. Water and Weight stay as their own cards since they carry their own
-                controls (quick-add buttons, the sparkline). */}
-            <div style={styles.card}>
+            {/* Each metric gets its own icon-badged card, mirroring the Today tab's meal
+                sections, so the two tabs read as one visual language instead of two apps. */}
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <PieChart size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Nutrients</span>
+                </div>
+              </div>
               <div style={styles.macroList}>
                 {["protein", "carbs", "fat", "sat", "sugar", "salt"].map((k) => {
                   const pct = targets[k] ? totals[k] / targets[k] : 0;
@@ -2640,96 +2655,110 @@ export default function App() {
                   );
                 })}
               </div>
-
-              <div style={styles.deviceSection}>
-                <div style={styles.waterTop}>
-                  <span style={styles.sectionLabel}>THIS WEEK</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                    <span style={styles.waterReading}>
-                      {weeklyKcal.toLocaleString()}
-                      <span style={styles.macroUnit}> / {(targets.kcal * 7).toLocaleString()} kcal</span>
-                    </span>
-                    <button
-                      style={styles.infoToggleBtn}
-                      onClick={() => toggleInfo("week")}
-                      aria-label={expandedInfo.has("week") ? "Hide detail" : "Show detail"}
-                    >
-                      <ChevronDown
-                        size={16}
-                        style={{
-                          transform: expandedInfo.has("week") ? "rotate(180deg)" : "none",
-                          transition: "transform 0.15s",
-                        }}
-                      />
-                    </button>
-                  </div>
-                </div>
-                <div style={styles.macroBarTrack}>
-                  <div
-                    style={{
-                      ...styles.macroBarFill,
-                      width: `${Math.min(targets.kcal ? weeklyKcal / (targets.kcal * 7) : 0, 1) * 100}%`,
-                      background: weeklyKcalTone(weeklyKcal, targets.kcal * 7).color,
-                    }}
-                  />
-                </div>
-                {expandedInfo.has("week") && (
-                  <>
-                    <p style={styles.drinksTone}>
-                      {targets.kcal * 7 - weeklyKcal >= 0
-                        ? `${(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal spare across the week.`
-                        : `${Math.abs(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal over across the week.`}
-                    </p>
-                    <p style={styles.drinksCaption}>{weeklyKcalTone(weeklyKcal, targets.kcal * 7).msg}</p>
-                  </>
-                )}
-              </div>
-
-              <div style={styles.deviceSection}>
-                <div style={styles.waterTop}>
-                  <span style={styles.sectionLabel}>DRINKS THIS WEEK</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                    <span style={styles.waterReading}>
-                      {weeklyUnits}
-                      <span style={styles.macroUnit}> / {targets.weeklyUnits} units</span>
-                    </span>
-                    <button
-                      style={styles.infoToggleBtn}
-                      onClick={() => toggleInfo("drinks")}
-                      aria-label={expandedInfo.has("drinks") ? "Hide detail" : "Show detail"}
-                    >
-                      <ChevronDown
-                        size={16}
-                        style={{
-                          transform: expandedInfo.has("drinks") ? "rotate(180deg)" : "none",
-                          transition: "transform 0.15s",
-                        }}
-                      />
-                    </button>
-                  </div>
-                </div>
-                <div style={styles.macroBarTrack}>
-                  <div
-                    style={{
-                      ...styles.macroBarFill,
-                      width: `${Math.min(targets.weeklyUnits ? weeklyUnits / targets.weeklyUnits : 0, 1) * 100}%`,
-                      background: weeklyTone(weeklyUnits, targets.weeklyUnits).color,
-                    }}
-                  />
-                </div>
-                {expandedInfo.has("drinks") && (
-                  <>
-                    <p style={styles.drinksTone}>{weeklyTone(weeklyUnits, targets.weeklyUnits).msg}</p>
-                    <p style={styles.drinksCaption}>Resets every Monday — a Saturday pint doesn't undo your week.</p>
-                  </>
-                )}
-              </div>
             </div>
 
-            {/* Water */}
-            <div style={styles.waterCard}>
-              <div style={styles.waterTop}>
-                <span style={styles.sectionLabel}>WATER</span>
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <TrendingUp size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>This week</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <span style={styles.waterReading}>
+                    {weeklyKcal.toLocaleString()}
+                    <span style={styles.macroUnit}> / {(targets.kcal * 7).toLocaleString()} kcal</span>
+                  </span>
+                  <button
+                    style={styles.infoToggleBtn}
+                    onClick={() => toggleInfo("week")}
+                    aria-label={expandedInfo.has("week") ? "Hide detail" : "Show detail"}
+                  >
+                    <ChevronDown
+                      size={16}
+                      style={{
+                        transform: expandedInfo.has("week") ? "rotate(180deg)" : "none",
+                        transition: "transform 0.15s",
+                      }}
+                    />
+                  </button>
+                </div>
+              </div>
+              <div style={styles.macroBarTrack}>
+                <div
+                  style={{
+                    ...styles.macroBarFill,
+                    width: `${Math.min(targets.kcal ? weeklyKcal / (targets.kcal * 7) : 0, 1) * 100}%`,
+                    background: weeklyKcalTone(weeklyKcal, targets.kcal * 7).color,
+                  }}
+                />
+              </div>
+              {expandedInfo.has("week") && (
+                <>
+                  <p style={styles.drinksTone}>
+                    {targets.kcal * 7 - weeklyKcal >= 0
+                      ? `${(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal spare across the week.`
+                      : `${Math.abs(targets.kcal * 7 - weeklyKcal).toLocaleString()} kcal over across the week.`}
+                  </p>
+                  <p style={styles.drinksCaption}>{weeklyKcalTone(weeklyKcal, targets.kcal * 7).msg}</p>
+                </>
+              )}
+            </div>
+
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <Wine size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Drinks this week</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <span style={styles.waterReading}>
+                    {weeklyUnits}
+                    <span style={styles.macroUnit}> / {targets.weeklyUnits} units</span>
+                  </span>
+                  <button
+                    style={styles.infoToggleBtn}
+                    onClick={() => toggleInfo("drinks")}
+                    aria-label={expandedInfo.has("drinks") ? "Hide detail" : "Show detail"}
+                  >
+                    <ChevronDown
+                      size={16}
+                      style={{
+                        transform: expandedInfo.has("drinks") ? "rotate(180deg)" : "none",
+                        transition: "transform 0.15s",
+                      }}
+                    />
+                  </button>
+                </div>
+              </div>
+              <div style={styles.macroBarTrack}>
+                <div
+                  style={{
+                    ...styles.macroBarFill,
+                    width: `${Math.min(targets.weeklyUnits ? weeklyUnits / targets.weeklyUnits : 0, 1) * 100}%`,
+                    background: weeklyTone(weeklyUnits, targets.weeklyUnits).color,
+                  }}
+                />
+              </div>
+              {expandedInfo.has("drinks") && (
+                <>
+                  <p style={styles.drinksTone}>{weeklyTone(weeklyUnits, targets.weeklyUnits).msg}</p>
+                  <p style={styles.drinksCaption}>Resets every Monday — a Saturday pint doesn't undo your week.</p>
+                </>
+              )}
+            </div>
+
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <Droplet size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Water</span>
+                </div>
                 <span style={styles.waterReading}>
                   {water.toFixed(1)}
                   <span style={styles.macroUnit}> / {targets.water.toFixed(1)} L</span>
@@ -2758,9 +2787,14 @@ export default function App() {
             </div>
 
             {/* Weight — condensed summary; full log/backdating/milestones live in the Weight sheet */}
-            <div style={styles.waterCard}>
-              <div style={styles.waterTop}>
-                <span style={styles.sectionLabel}>WEIGHT</span>
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <Scale size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Weight</span>
+                </div>
                 {sortedWeightLog.length > 0 && (
                   <span style={styles.waterReading}>
                     {displayWeight(sortedWeightLog[sortedWeightLog.length - 1].kg, bodyWeightUnit)}
@@ -2791,7 +2825,7 @@ export default function App() {
 
         {activeTab === "library" && (
           <div key="library" className="fade-in">
-            <div style={styles.searchBox}>
+            <div style={{ ...styles.searchBox, marginBottom: 16 }}>
               <Search size={16} color="var(--muted)" />
               <input
                 style={styles.searchInput}
@@ -2801,85 +2835,110 @@ export default function App() {
               />
             </div>
 
-            <span style={{ ...styles.sessionLabel, marginTop: 16, display: "block" }}>YOUR SAVED MEALS</span>
-            {combos.length === 0 ? (
-              <p style={styles.barcodeHint}>
-                Nothing saved yet — log 2+ items in one go from Add food, then "Save as a quick meal" to see it here.
-              </p>
-            ) : libraryCombos.length === 0 ? (
-              <p style={styles.barcodeHint}>No saved meals match "{libraryQuery}".</p>
-            ) : (
-              <div style={styles.quickAddsList}>
-                {libraryCombos.map((c) => {
-                  const ck = Math.round(c.items.reduce((s, it) => s + (it.kcal * it.grams) / 100, 0));
-                  return (
-                    <div key={c.id} style={styles.quickAddRow}>
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <BookmarkPlus size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Your saved meals</span>
+                </div>
+              </div>
+              {combos.length === 0 ? (
+                <p style={styles.barcodeHint}>
+                  Nothing saved yet — log 2+ items in one go from Add food, then "Save as a quick meal" to see it here.
+                </p>
+              ) : libraryCombos.length === 0 ? (
+                <p style={styles.barcodeHint}>No saved meals match "{libraryQuery}".</p>
+              ) : (
+                <div style={styles.quickAddsList}>
+                  {libraryCombos.map((c) => {
+                    const ck = Math.round(c.items.reduce((s, it) => s + (it.kcal * it.grams) / 100, 0));
+                    return (
+                      <div key={c.id} style={styles.quickAddRow}>
+                        <button
+                          style={styles.quickAddMain}
+                          onClick={() => logCombo(c, defaultMealForNow())}
+                          aria-label={`Add ${c.name}`}
+                        >
+                          <span style={styles.quickAddPlus}>
+                            <Plus size={15} strokeWidth={2.25} />
+                          </span>
+                          <span style={styles.quickAddText}>
+                            <span style={styles.quickAddName}>{c.name}</span>
+                            <span style={styles.quickAddMeta}>
+                              {c.items.length} items · {ck} kcal
+                            </span>
+                          </span>
+                        </button>
+                        <button style={styles.trashBtn} onClick={() => deleteCombo(c.id)} aria-label={`Delete ${c.name}`}>
+                          <Trash2 size={15} strokeWidth={1.75} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <BookOpen size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Built-in recipes</span>
+                </div>
+              </div>
+              {libraryRecipes.length === 0 ? (
+                <p style={styles.barcodeHint}>No recipes match "{libraryQuery}".</p>
+              ) : (
+                <div style={styles.quickAddsList}>
+                  {libraryRecipes.map((r) => (
+                    <div key={r.id || r.name} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <button
-                        style={styles.quickAddMain}
-                        onClick={() => logCombo(c, defaultMealForNow())}
-                        aria-label={`Add ${c.name}`}
+                        style={{ ...styles.libraryRecipeRow, flex: 1, minWidth: 0 }}
+                        onClick={() => openRecipeFromLibrary(r)}
                       >
                         <span style={styles.quickAddPlus}>
-                          <Plus size={15} strokeWidth={2.25} />
+                          <BookOpen size={14} />
                         </span>
                         <span style={styles.quickAddText}>
-                          <span style={styles.quickAddName}>{c.name}</span>
-                          <span style={styles.quickAddMeta}>
-                            {c.items.length} items · {ck} kcal
+                          <span style={styles.quickAddName}>
+                            {r.name}
+                            {r.mine ? <span style={styles.mineTag}> · yours</span> : null}
                           </span>
+                          <span style={styles.quickAddMeta}>{r.items.length} ingredients · tap to adjust & add</span>
                         </span>
                       </button>
-                      <button style={styles.trashBtn} onClick={() => deleteCombo(c.id)} aria-label={`Delete ${c.name}`}>
-                        <Trash2 size={15} strokeWidth={1.75} />
-                      </button>
+                      {r.mine && (
+                        <button
+                          style={styles.trashBtn}
+                          onClick={() => deleteCustomRecipe(r.id)}
+                          aria-label={`Delete ${r.name}`}
+                        >
+                          <Trash2 size={15} strokeWidth={1.75} />
+                        </button>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <span style={{ ...styles.sessionLabel, marginTop: 22, display: "block" }}>BUILT-IN RECIPES</span>
-            {libraryRecipes.length === 0 ? (
-              <p style={styles.barcodeHint}>No recipes match "{libraryQuery}".</p>
-            ) : (
-              <div style={styles.quickAddsList}>
-                {libraryRecipes.map((r) => (
-                  <div key={r.id || r.name} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <button
-                      style={{ ...styles.libraryRecipeRow, flex: 1, minWidth: 0 }}
-                      onClick={() => openRecipeFromLibrary(r)}
-                    >
-                      <span style={styles.quickAddPlus}>
-                        <BookOpen size={14} />
-                      </span>
-                      <span style={styles.quickAddText}>
-                        <span style={styles.quickAddName}>
-                          {r.name}
-                          {r.mine ? <span style={styles.mineTag}> · yours</span> : null}
-                        </span>
-                        <span style={styles.quickAddMeta}>{r.items.length} ingredients · tap to adjust & add</span>
-                      </span>
-                    </button>
-                    {r.mine && (
-                      <button
-                        style={styles.trashBtn}
-                        onClick={() => deleteCustomRecipe(r.id)}
-                        aria-label={`Delete ${r.name}`}
-                      >
-                        <Trash2 size={15} strokeWidth={1.75} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {activeTab === "settings" && (
           <div key="settings" className="fade-in">
-            <div style={styles.card}>
-              <span style={styles.sessionLabel}>DAILY TARGETS</span>
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <Target size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Daily targets</span>
+                </div>
+              </div>
               <div style={styles.customGrid}>
                 {Object.keys(DEFAULT_TARGETS).map((k) => (
                   <div key={k}>
@@ -2898,197 +2957,6 @@ export default function App() {
                   </div>
                 ))}
               </div>
-
-              <div style={styles.deviceSection}>
-                <span style={styles.sessionLabel}>CALORIE CALCULATOR</span>
-                {!showCalc ? (
-                  <button style={styles.deviceConnectBtn} onClick={openCalculator}>
-                    Calculate my calories
-                  </button>
-                ) : (
-                  <>
-                    <p style={styles.barcodeHint}>
-                      Works out a daily kcal target from your details — fills in the Kcal field above, everything
-                      else stays as you've set it.
-                    </p>
-
-                    <div style={styles.mealChipRow}>
-                      <button
-                        style={{ ...styles.mealChip, ...(calcSex === "female" ? styles.mealChipActive : {}) }}
-                        onClick={() => setCalcSex("female")}
-                      >
-                        Female
-                      </button>
-                      <button
-                        style={{ ...styles.mealChip, ...(calcSex === "male" ? styles.mealChipActive : {}) }}
-                        onClick={() => setCalcSex("male")}
-                      >
-                        Male
-                      </button>
-                    </div>
-
-                    <div style={styles.customGrid}>
-                      <div>
-                        <label style={styles.fieldLabelSmall}>Age</label>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          style={styles.textInput}
-                          value={calcAge}
-                          onChange={(ev) => setCalcAge(ev.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label style={styles.fieldLabelSmall}>Height (cm)</label>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          style={styles.textInput}
-                          value={calcHeight}
-                          onChange={(ev) => setCalcHeight(ev.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={styles.amountLabelRow}>
-                      <label style={styles.fieldLabel}>Current weight</label>
-                      <div style={styles.unitToggle}>
-                        <button
-                          style={{ ...styles.unitToggleBtn, ...(calcWeightUnit === "kg" ? styles.unitToggleBtnActive : {}) }}
-                          onClick={() => setCalcWeightUnit("kg")}
-                        >
-                          kg
-                        </button>
-                        <button
-                          style={{
-                            ...styles.unitToggleBtn,
-                            ...(calcWeightUnit === "stone" ? styles.unitToggleBtnActive : {}),
-                          }}
-                          onClick={() => setCalcWeightUnit("stone")}
-                        >
-                          st
-                        </button>
-                      </div>
-                    </div>
-                    {calcWeightUnit === "kg" ? (
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        style={styles.gramsInput}
-                        value={calcWeightKg}
-                        onChange={(ev) => setCalcWeightKg(ev.target.value)}
-                      />
-                    ) : (
-                      <div style={styles.customGrid}>
-                        <div>
-                          <label style={styles.fieldLabelSmall}>Stone</label>
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            style={styles.textInput}
-                            value={calcWeightStone}
-                            onChange={(ev) => setCalcWeightStone(ev.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label style={styles.fieldLabelSmall}>Pounds</label>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            style={styles.textInput}
-                            value={calcWeightLb}
-                            onChange={(ev) => setCalcWeightLb(ev.target.value)}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <label style={styles.fieldLabel}>Activity level</label>
-                    <select
-                      style={styles.textInput}
-                      value={calcActivity}
-                      onChange={(ev) => setCalcActivity(ev.target.value)}
-                    >
-                      <option value="sedentary">Sedentary — little or no exercise</option>
-                      <option value="light">Light — exercise 1–3 days/week</option>
-                      <option value="moderate">Moderate — exercise 3–5 days/week</option>
-                      <option value="very">Very active — exercise 6–7 days/week</option>
-                      <option value="extra">Extra active — hard exercise + physical job</option>
-                    </select>
-
-                    <label style={styles.fieldLabel}>Goal</label>
-                    <div style={styles.mealChipRow}>
-                      <button
-                        style={{ ...styles.mealChip, ...(calcGoal === "lose" ? styles.mealChipActive : {}) }}
-                        onClick={() => setCalcGoal("lose")}
-                      >
-                        Lose
-                      </button>
-                      <button
-                        style={{ ...styles.mealChip, ...(calcGoal === "maintain" ? styles.mealChipActive : {}) }}
-                        onClick={() => setCalcGoal("maintain")}
-                      >
-                        Maintain
-                      </button>
-                      <button
-                        style={{ ...styles.mealChip, ...(calcGoal === "gain" ? styles.mealChipActive : {}) }}
-                        onClick={() => setCalcGoal("gain")}
-                      >
-                        Gain
-                      </button>
-                    </div>
-
-                    {calcGoal !== "maintain" && (
-                      <>
-                        <label style={styles.fieldLabelSmall}>
-                          {calcGoal === "lose" ? "Lose" : "Gain"} per week ({calcWeightUnit === "kg" ? "kg" : "lb"}) —
-                          max {calcMaxRate}
-                          {calcWeightUnit === "kg" ? "kg" : "lb"}
-                        </label>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          style={styles.textInput}
-                          min="0"
-                          max={calcMaxRate}
-                          step={calcWeightUnit === "kg" ? "0.05" : "0.25"}
-                          value={calcRate}
-                          onChange={(ev) => {
-                            const val = ev.target.value;
-                            const num = parseFloat(val);
-                            // Clamp as soon as a value exceeds the cap, rather than waiting for blur —
-                            // the input should never visibly show a rate above the hard 2lb/week limit.
-                            setCalcRate(!isNaN(num) && num > calcMaxRate ? String(calcMaxRate) : val);
-                          }}
-                          onBlur={() => {
-                            const num = parseFloat(calcRate);
-                            if (!isNaN(num)) setCalcRate(String(Math.min(Math.max(num, 0), calcMaxRate)));
-                          }}
-                        />
-                      </>
-                    )}
-
-                    {calcResult && (
-                      <>
-                        <div style={styles.weightHeroCard}>
-                          <div style={styles.weightHeroNumber}>{calcResult} kcal</div>
-                          <div style={styles.weightHeroLabel}>suggested daily target</div>
-                        </div>
-                        {calcResult < 1200 && (
-                          <p style={styles.barcodeHint}>
-                            That's a very low target — worth easing off the rate above, or checking with a GP before
-                            following it.
-                          </p>
-                        )}
-                        <button style={styles.secondaryBtn} onClick={() => setTargets({ ...targets, kcal: calcResult })}>
-                          Use this target
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-
               <div style={styles.sheetActions}>
                 <button
                   style={styles.primaryBtn}
@@ -3106,8 +2974,212 @@ export default function App() {
               </div>
             </div>
 
-            <div style={styles.deviceSection}>
-              <span style={styles.sessionLabel}>ACCOUNT</span>
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <Calculator size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Calorie calculator</span>
+                </div>
+              </div>
+              {!showCalc ? (
+                <button style={styles.deviceConnectBtn} onClick={openCalculator}>
+                  Calculate my calories
+                </button>
+              ) : (
+                <>
+                  <p style={styles.barcodeHint}>
+                    Works out a daily kcal target from your details — fills in the Kcal field above, everything
+                    else stays as you've set it.
+                  </p>
+
+                  <div style={styles.mealChipRow}>
+                    <button
+                      style={{ ...styles.mealChip, ...(calcSex === "female" ? styles.mealChipActive : {}) }}
+                      onClick={() => setCalcSex("female")}
+                    >
+                      Female
+                    </button>
+                    <button
+                      style={{ ...styles.mealChip, ...(calcSex === "male" ? styles.mealChipActive : {}) }}
+                      onClick={() => setCalcSex("male")}
+                    >
+                      Male
+                    </button>
+                  </div>
+
+                  <div style={styles.customGrid}>
+                    <div>
+                      <label style={styles.fieldLabelSmall}>Age</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        style={styles.textInput}
+                        value={calcAge}
+                        onChange={(ev) => setCalcAge(ev.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label style={styles.fieldLabelSmall}>Height (cm)</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        style={styles.textInput}
+                        value={calcHeight}
+                        onChange={(ev) => setCalcHeight(ev.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={styles.amountLabelRow}>
+                    <label style={styles.fieldLabel}>Current weight</label>
+                    <div style={styles.unitToggle}>
+                      <button
+                        style={{ ...styles.unitToggleBtn, ...(calcWeightUnit === "kg" ? styles.unitToggleBtnActive : {}) }}
+                        onClick={() => setCalcWeightUnit("kg")}
+                      >
+                        kg
+                      </button>
+                      <button
+                        style={{
+                          ...styles.unitToggleBtn,
+                          ...(calcWeightUnit === "stone" ? styles.unitToggleBtnActive : {}),
+                        }}
+                        onClick={() => setCalcWeightUnit("stone")}
+                      >
+                        st
+                      </button>
+                    </div>
+                  </div>
+                  {calcWeightUnit === "kg" ? (
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      style={styles.gramsInput}
+                      value={calcWeightKg}
+                      onChange={(ev) => setCalcWeightKg(ev.target.value)}
+                    />
+                  ) : (
+                    <div style={styles.customGrid}>
+                      <div>
+                        <label style={styles.fieldLabelSmall}>Stone</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          style={styles.textInput}
+                          value={calcWeightStone}
+                          onChange={(ev) => setCalcWeightStone(ev.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label style={styles.fieldLabelSmall}>Pounds</label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          style={styles.textInput}
+                          value={calcWeightLb}
+                          onChange={(ev) => setCalcWeightLb(ev.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <label style={styles.fieldLabel}>Activity level</label>
+                  <select
+                    style={styles.textInput}
+                    value={calcActivity}
+                    onChange={(ev) => setCalcActivity(ev.target.value)}
+                  >
+                    <option value="sedentary">Sedentary — little or no exercise</option>
+                    <option value="light">Light — exercise 1–3 days/week</option>
+                    <option value="moderate">Moderate — exercise 3–5 days/week</option>
+                    <option value="very">Very active — exercise 6–7 days/week</option>
+                    <option value="extra">Extra active — hard exercise + physical job</option>
+                  </select>
+
+                  <label style={styles.fieldLabel}>Goal</label>
+                  <div style={styles.mealChipRow}>
+                    <button
+                      style={{ ...styles.mealChip, ...(calcGoal === "lose" ? styles.mealChipActive : {}) }}
+                      onClick={() => setCalcGoal("lose")}
+                    >
+                      Lose
+                    </button>
+                    <button
+                      style={{ ...styles.mealChip, ...(calcGoal === "maintain" ? styles.mealChipActive : {}) }}
+                      onClick={() => setCalcGoal("maintain")}
+                    >
+                      Maintain
+                    </button>
+                    <button
+                      style={{ ...styles.mealChip, ...(calcGoal === "gain" ? styles.mealChipActive : {}) }}
+                      onClick={() => setCalcGoal("gain")}
+                    >
+                      Gain
+                    </button>
+                  </div>
+
+                  {calcGoal !== "maintain" && (
+                    <>
+                      <label style={styles.fieldLabelSmall}>
+                        {calcGoal === "lose" ? "Lose" : "Gain"} per week ({calcWeightUnit === "kg" ? "kg" : "lb"}) —
+                        max {calcMaxRate}
+                        {calcWeightUnit === "kg" ? "kg" : "lb"}
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        style={styles.textInput}
+                        min="0"
+                        max={calcMaxRate}
+                        step={calcWeightUnit === "kg" ? "0.05" : "0.25"}
+                        value={calcRate}
+                        onChange={(ev) => {
+                          const val = ev.target.value;
+                          const num = parseFloat(val);
+                          // Clamp as soon as a value exceeds the cap, rather than waiting for blur —
+                          // the input should never visibly show a rate above the hard 2lb/week limit.
+                          setCalcRate(!isNaN(num) && num > calcMaxRate ? String(calcMaxRate) : val);
+                        }}
+                        onBlur={() => {
+                          const num = parseFloat(calcRate);
+                          if (!isNaN(num)) setCalcRate(String(Math.min(Math.max(num, 0), calcMaxRate)));
+                        }}
+                      />
+                    </>
+                  )}
+
+                  {calcResult && (
+                    <>
+                      <div style={styles.weightHeroCard}>
+                        <div style={styles.weightHeroNumber}>{calcResult} kcal</div>
+                        <div style={styles.weightHeroLabel}>suggested daily target</div>
+                      </div>
+                      {calcResult < 1200 && (
+                        <p style={styles.barcodeHint}>
+                          That's a very low target — worth easing off the rate above, or checking with a GP before
+                          following it.
+                        </p>
+                      )}
+                      <button style={styles.secondaryBtn} onClick={() => setTargets({ ...targets, kcal: calcResult })}>
+                        Use this target
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <User size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Account</span>
+                </div>
+              </div>
               <p style={styles.barcodeHint}>Your log is private; saved meals are shared.</p>
               <div style={styles.deviceRow}>
                 <span style={styles.deviceName}>{user.displayName || user.email}</span>
@@ -3117,16 +3189,21 @@ export default function App() {
               </div>
             </div>
 
-            <div style={styles.deviceSection}>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={styles.sessionLabel}>DAILY REMINDER</span>
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <Bell size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Daily reminder</span>
+                </div>
                 <button
                   style={styles.infoToggleBtn}
                   onClick={() => toggleInfo("reminder")}
                   aria-label={expandedInfo.has("reminder") ? "Hide detail" : "Show detail"}
                 >
                   <ChevronDown
-                    size={14}
+                    size={16}
                     style={{
                       transform: expandedInfo.has("reminder") ? "rotate(180deg)" : "none",
                       transition: "transform 0.15s",
@@ -3157,8 +3234,15 @@ export default function App() {
               {reminderMsg && <p style={styles.deviceMsg}>{reminderMsg}</p>}
             </div>
 
-            <div style={styles.deviceSection}>
-              <span style={styles.sessionLabel}>CONNECTED DEVICES</span>
+            <div style={styles.panelCard}>
+              <div style={styles.panelHeaderRow}>
+                <div style={styles.panelTitleRow}>
+                  <div style={styles.panelIconBadge}>
+                    <Smartphone size={16} strokeWidth={2} />
+                  </div>
+                  <span style={styles.panelTitle}>Connected devices</span>
+                </div>
+              </div>
               <div style={styles.deviceList}>
                 {DEVICES.map((d) => (
                   <div key={d.key} style={styles.deviceRow}>
@@ -4728,7 +4812,7 @@ const styles = {
     padding: "8px 4px",
     cursor: "pointer",
   },
-  mealSection: {
+  panelCard: {
     marginBottom: 16,
     background: "var(--surface)",
     border: "1px solid var(--glass-border)",
@@ -4736,7 +4820,7 @@ const styles = {
     padding: "16px 18px",
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 4px rgba(0,0,0,0.25), 0 10px 24px rgba(0,0,0,0.35)",
   },
-  mealIconBadge: {
+  panelIconBadge: {
     width: 34,
     height: 34,
     borderRadius: 11,
@@ -4749,7 +4833,7 @@ const styles = {
     flexShrink: 0,
     boxShadow: "0 0 10px rgba(34,211,238,0.12)",
   },
-  mealTitleRow: { display: "flex", alignItems: "center", gap: 12 },
+  panelTitleRow: { display: "flex", alignItems: "center", gap: 12 },
   quickAddsSection: { marginTop: 20, marginBottom: 28, display: "flex", flexDirection: "column", gap: 12 },
   quickAddsTrigger: {
     display: "flex",
@@ -4834,8 +4918,8 @@ const styles = {
     minHeight: 44,
     width: "100%",
   },
-  mealHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10, gap: 8 },
-  mealTitle: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 700 },
+  panelHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10, gap: 8 },
+  panelTitle: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 700 },
   mealKcal: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
     fontSize: 12,
