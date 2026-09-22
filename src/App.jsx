@@ -1029,6 +1029,7 @@ export default function App() {
   const [recipeGrams, setRecipeGrams] = useState({});
   const [recipeMatches, setRecipeMatches] = useState({}); // ingredient index -> matched shop product
   const [recipeMatchLoading, setRecipeMatchLoading] = useState(false);
+  const [recipeMatchNote, setRecipeMatchNote] = useState("");
   const [barcodeMode, setBarcodeMode] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
   const [barcodeLoading, setBarcodeLoading] = useState(false);
@@ -1751,6 +1752,7 @@ export default function App() {
     });
     setRecipeGrams(g);
     setRecipeMatches({});
+    setRecipeMatchNote("");
     if (r.defaultMeal) setMeal(r.defaultMeal);
   }
 
@@ -1763,15 +1765,30 @@ export default function App() {
   async function matchRecipeToShop() {
     if (!recipe || !preferredShop.trim()) return;
     setRecipeMatchLoading(true);
-    const shop = preferredShop.trim().toLowerCase();
+    setRecipeMatchNote("");
+    const shop = preferredShop.trim();
+    const shopLower = shop.toLowerCase();
     const results = await Promise.all(recipe.items.map((it) => searchOpenFoodFactsText(it.food)));
     const matches = {};
     results.forEach((list, i) => {
-      const hit = list.find((p) => p.stores.toLowerCase().includes(shop));
+      const hit = list.find((p) => p.stores.toLowerCase().includes(shopLower));
       if (hit) matches[i] = hit;
     });
     setRecipeMatches(matches);
     setRecipeMatchLoading(false);
+
+    // Always say something — a silent no-op when nothing matches (the search API
+    // being briefly unreachable, or this recipe's ingredients genuinely having no
+    // shop-tagged products) looks exactly like the button doing nothing at all.
+    const matchedCount = Object.keys(matches).length;
+    const anyResultsAtAll = results.some((list) => list.length > 0);
+    if (matchedCount > 0) {
+      setRecipeMatchNote(`Matched ${matchedCount} of ${recipe.items.length} ingredients to ${shop}.`);
+    } else if (!anyResultsAtAll) {
+      setRecipeMatchNote("Couldn't reach the online food search just now — try again in a minute or two.");
+    } else {
+      setRecipeMatchNote(`None of these ingredients had a product tagged as stocked at ${shop} — kept the generic figures.`);
+    }
   }
 
   function clearRecipeMatch(i) {
@@ -2387,6 +2404,7 @@ export default function App() {
     setGrams(100);
     setRecipe(null);
     setRecipeMatches({});
+    setRecipeMatchNote("");
     setBarcodeMode(false);
     setBarcodeInput("");
     setWeightUnit(meal === "drinks" ? "ml" : "g");
@@ -4038,6 +4056,7 @@ export default function App() {
                     )}
                   </button>
                 )}
+                {recipeMatchNote && <p style={styles.barcodeHint}>{recipeMatchNote}</p>}
 
                 <div style={styles.ingredientList}>
                   {recipe.items.map((it, i) => {
