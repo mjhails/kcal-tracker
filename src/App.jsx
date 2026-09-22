@@ -1820,6 +1820,17 @@ export default function App() {
 
       if (kcal === undefined || kcal === null) return null; // still nothing usable
 
+      // Per-item weight (e.g. "80g" for one bar in a multi-pack) — the label often
+      // states this even when it doesn't state per-item kcal, so default the add
+      // screen to it instead of an arbitrary 100g. serving_quantity is OFF's own
+      // parsed grams figure; fall back to pulling a number out of serving_size
+      // ("80 g", "1 bar (80g)") when that's all the product has.
+      let servingGrams = parseFloat(data.product.serving_quantity) || null;
+      if (!servingGrams && data.product.serving_size) {
+        const m = /([\d.]+)\s*g\b/i.exec(data.product.serving_size);
+        if (m) servingGrams = parseFloat(m[1]);
+      }
+
       return {
         name,
         kcal: Math.round(kcal),
@@ -1829,6 +1840,7 @@ export default function App() {
         sat: Math.round((sat ?? 0) * 10) / 10,
         sugar: Math.round((sugar ?? 0) * 10) / 10,
         salt: Math.round((salt ?? 0) * 100) / 100,
+        servingGrams: servingGrams && servingGrams > 0 ? Math.round(servingGrams * 10) / 10 : null,
       };
     } catch (e) {
       return null; // offline, API down, or blocked — fall back to manual entry
@@ -1865,6 +1877,13 @@ export default function App() {
       const name = [match.brandOwner, match.description].filter(Boolean).join(" — ") || "Scanned item";
       // USDA reports sodium in mg, not salt — salt (g) = sodium (mg) × 2.5 / 1000, the standard conversion.
       const sodiumMg = findNutrient("Sodium, Na");
+      // Per-item weight, same idea as the OpenFoodFacts lookup above — only trust it
+      // when the unit is actually a weight, not "ml"/"fl oz"/etc.
+      const servingUnit = (match.servingSizeUnit || "").toLowerCase();
+      const servingGrams =
+        match.servingSize && (servingUnit === "g" || servingUnit === "grm" || servingUnit === "gram")
+          ? Math.round(match.servingSize * 10) / 10
+          : null;
       return {
         name,
         kcal: Math.round(kcal),
@@ -1874,6 +1893,7 @@ export default function App() {
         sat: findNutrient("Fatty acids, total saturated") ?? 0,
         sugar: findNutrient("Sugars, total including NLEA") ?? findNutrient("Sugars, total") ?? 0,
         salt: sodiumMg !== undefined ? Math.round(((sodiumMg * 2.5) / 1000) * 100) / 100 : 0,
+        servingGrams,
       };
     } catch (e) {
       return null; // offline, API down, key not set up, or rate-limited
@@ -2004,11 +2024,22 @@ export default function App() {
     setBarcodeMode(false);
     setCustomMode(true);
     setLabelScanNote("");
-    setAmountMode("grams");
-    setGrams(100);
-    setCount(1);
-    setUnitWeight(100);
     setWeightUnit(meal === "drinks" ? "ml" : "g");
+
+    if (found && found.servingGrams) {
+      // The product data states a per-item/serving weight (e.g. "80g" for one bar in a
+      // multi-pack) even though it usually doesn't state per-item kcal — default to
+      // logging by quantity at that weight instead of an arbitrary 100g by weight.
+      setAmountMode("count");
+      setCount(1);
+      setUnitWeight(found.servingGrams);
+      setGrams(found.servingGrams);
+    } else {
+      setAmountMode("grams");
+      setGrams(100);
+      setCount(1);
+      setUnitWeight(100);
+    }
 
     if (found) {
       setCustomFood({
