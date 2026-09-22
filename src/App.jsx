@@ -1911,10 +1911,18 @@ export default function App() {
   // lines in ways a screenshot never would. This is never presented as certain — the
   // person always sees and can correct it.
   function parseNutritionText(text) {
-    const norm = text.replace(/\r/g, "\n");
+    // OCR on clean digital text (a ChatGPT/app screenshot, not a photographed label)
+    // still introduces its own noise: a stray character between the number and its
+    // unit (Tesseract sometimes reads "g" as "¢g"), and a zero digit misread as the
+    // letter "O" (only when there's nothing else in the cell to anchor it, e.g. a
+    // lone "0g" total). Fix the second one before matching; tolerate the first by
+    // allowing a few junk characters between the number and "g" instead of requiring
+    // it immediately after.
+    const norm = text.replace(/\r/g, "\n").replace(/\bO(?=\s*g\b)/g, "0");
     const flattened = norm.replace(/\n/g, " ");
     const sources = [norm, flattened];
     const GAP = "[^\\d\\n]{0,20}"; // label-to-number gap, widened for "of which..." style prefixes
+    const UNIT_GAP = "[^\\d\\n]{0,3}"; // tolerates stray OCR noise (e.g. "¢") between the number and "g"
 
     const findFirst = (patterns) => {
       for (const source of sources) {
@@ -1927,12 +1935,12 @@ export default function App() {
     };
 
     const sat = findFirst([
-      new RegExp(`saturat(?:ed|es)(?:\\s*fat)?${GAP}(\\d+[.,]?\\d*)\\s*g`, "i"),
-      new RegExp(`sat\\.?\\s*fat${GAP}(\\d+[.,]?\\d*)\\s*g`, "i"),
+      new RegExp(`saturat(?:ed|es)(?:\\s*fat)?${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i"),
+      new RegExp(`sat\\.?\\s*fat${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i"),
     ]);
 
     // Strip out "...saturat(ed|es)..." first so the generic fat pattern below doesn't re-match it
-    const fatPattern = new RegExp(`(?:total\\s*)?\\bfat${GAP}(\\d+[.,]?\\d*)\\s*g`, "i");
+    const fatPattern = new RegExp(`(?:total\\s*)?\\bfat${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i");
     let fat;
     for (const source of sources) {
       const m = source.replace(/saturat(?:ed|es)[^\n]{0,30}/gi, "").match(fatPattern);
@@ -1942,10 +1950,10 @@ export default function App() {
       }
     }
 
-    const sugar = findFirst([new RegExp(`sugars?${GAP}(\\d+[.,]?\\d*)\\s*g`, "i")]);
-    const carbs = findFirst([new RegExp(`carb(?:ohydrate)?s?${GAP}(\\d+[.,]?\\d*)\\s*g`, "i")]);
-    const protein = findFirst([new RegExp(`protein${GAP}(\\d+[.,]?\\d*)\\s*g`, "i")]);
-    const salt = findFirst([new RegExp(`salt${GAP}(\\d+[.,]?\\d*)\\s*g`, "i")]);
+    const sugar = findFirst([new RegExp(`sugars?${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i")]);
+    const carbs = findFirst([new RegExp(`carb(?:ohydrate)?s?${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i")]);
+    const protein = findFirst([new RegExp(`protein${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i")]);
+    const salt = findFirst([new RegExp(`salt${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i")]);
     const kcal = findFirst([/calories\D{0,10}(\d+)/i, /energy\D{0,15}(\d+)\s*kcal/i, /(\d+)\s*kcal/i]);
 
     // Alcohol units, only if this looks like a drink label — UK units per 100ml = %ABV ÷ 10,
@@ -1954,13 +1962,31 @@ export default function App() {
     const units = abv !== undefined ? Math.round((abv / 10) * 100) / 100 : undefined;
 
     // Best-effort product name: the first line that reads like a title rather than
-    // nutrition-panel boilerplate or a numbers-heavy table row.
+    // nutrition-panel boilerplate, a numbers-heavy table row, garbled UI-chrome text
+    // (icons/status bar misread as stray characters), or — specific to screenshots of
+    // a chat app — the assistant's conversational reply sentence before the table.
+    // "fat"/"salt" alone are too common in real product names ("20% Fat" mince, "Sea
+    // Salt" crisps) to blanket-exclude — only treat them as boilerplate when followed
+    // by a number/colon, i.e. when the line actually looks like "Fat 17.4g" rather
+    // than a product description.
     const boilerplate =
-      /nutrition|typical values|per\s*100|ingredients|allerg|energy|serving|contains|calories|kcal|\bfat\b|saturat|carbohydrate|\bcarbs?\b|protein|sugars?|\bsalt\b|fibre|abv|vol\b/i;
+      /nutrition|typical values|per\s*100|ingredients|allerg|energy|serving|contains|calories|kcal|\bfat\b\s*[\d:]|saturat|carbohydrate|\bcarbs?\b|protein|sugars?|\bsalt\b\s*[\d:]|fibre|abv|vol\b/i;
+    const realWordCount = (l) => (l.match(/[a-z]{2,}/gi) || []).length;
+    const sentenceStopwordCount = (l) =>
+      (l.match(/\b(?:the|is|if|you|your|mean|and|for|with|current|following|lists?|are|this|that|from|here|sure)\b/gi) || [])
+        .length;
     const name = norm
       .split("\n")
       .map((l) => l.trim())
-      .find((l) => l.length >= 3 && l.length <= 60 && /[a-z]/i.test(l) && !boilerplate.test(l) && (l.match(/\d/g) || []).length < 3);
+      .find(
+        (l) =>
+          l.length >= 3 &&
+          l.length <= 60 &&
+          realWordCount(l) >= 2 &&
+          sentenceStopwordCount(l) < 2 &&
+          !boilerplate.test(l) &&
+          (l.match(/\d/g) || []).length < 3
+      );
 
     return { kcal, protein, carbs, fat, sat, sugar, salt, units, name };
   }
