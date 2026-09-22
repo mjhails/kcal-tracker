@@ -992,6 +992,8 @@ export default function App() {
   const [calcRate, setCalcRate] = useState(""); // weekly rate — kg if calcWeightUnit is kg, lb if stone
   const [libraryQuery, setLibraryQuery] = useState("");
   const [query, setQuery] = useState("");
+  const [onlineResults, setOnlineResults] = useState([]);
+  const [onlineSearchLoading, setOnlineSearchLoading] = useState(false);
   const [picked, setPicked] = useState(null);
   const [grams, setGrams] = useState(100);
   const [customMode, setCustomMode] = useState(false);
@@ -1606,6 +1608,32 @@ export default function App() {
 
   const comboResults = useMemo(() => searchByName(query, combos, (c) => c.name), [query, combos]);
 
+  // Live product search against OpenFoodFacts as you type, alongside the local
+  // catalogue/recipes/combos above — covers branded and homemade-only-in-spirit
+  // searches (a chain restaurant item, a supermarket ready meal) without needing a
+  // barcode. Debounced so it fires once typing pauses, not on every keystroke.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 3 || customMode || picked || recipe || barcodeMode) {
+      setOnlineResults([]);
+      setOnlineSearchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setOnlineSearchLoading(true);
+    const timer = setTimeout(async () => {
+      const found = await searchOpenFoodFactsText(q);
+      if (!cancelled) {
+        setOnlineResults(found);
+        setOnlineSearchLoading(false);
+      }
+    }, 450);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, customMode, picked, recipe, barcodeMode]);
+
   const libraryCombos = useMemo(() => {
     if (!libraryQuery.trim()) return combos;
     return searchByName(libraryQuery, combos, (c) => c.name);
@@ -1781,69 +1809,110 @@ export default function App() {
     }
   }
 
+  // Shared by the barcode lookup and the free-text search below — both APIs return
+  // the same OFF "product" shape, just reached a different way (one product by
+  // barcode vs. a list of candidates by name).
+  function normalizeOffProduct(product) {
+    if (!product) return null;
+    const n = product.nutriments || {};
+    const name = [product.brands, product.product_name].filter(Boolean).join(" — ") || "Scanned item";
+
+    // Prefer proper per-100g/ml figures when the database has them
+    let kcal = n["energy-kcal_100g"];
+    let protein = n.proteins_100g;
+    let carbs = n.carbohydrates_100g;
+    let fat = n.fat_100g;
+    let sat = n["saturated-fat_100g"];
+    let sugar = n.sugars_100g;
+    let salt = n.salt_100g;
+
+    // Fall back to per-serving figures and compute our own per-100g conversion —
+    // common for small servings (sauces, spices) where the database has the label
+    // numbers but the serving is too small for it to auto-compute a per-100g value.
+    if (kcal === undefined && n["energy-kcal_serving"] !== undefined) {
+      const servingGramsForScale = parseFloat(product.serving_quantity) || null;
+      if (servingGramsForScale && servingGramsForScale > 0) {
+        const scale = 100 / servingGramsForScale;
+        kcal = n["energy-kcal_serving"] * scale;
+        protein = (n.proteins_serving ?? 0) * scale;
+        carbs = (n.carbohydrates_serving ?? 0) * scale;
+        fat = (n.fat_serving ?? 0) * scale;
+        sat = (n["saturated-fat_serving"] ?? 0) * scale;
+        sugar = (n.sugars_serving ?? 0) * scale;
+        salt = (n.salt_serving ?? 0) * scale;
+      }
+    }
+
+    if (kcal === undefined || kcal === null) return null; // still nothing usable
+
+    // Per-item weight (e.g. "80g" for one bar in a multi-pack) — the label often
+    // states this even when it doesn't state per-item kcal, so default the add
+    // screen to it instead of an arbitrary 100g. serving_quantity is OFF's own
+    // parsed grams figure; fall back to pulling a number out of serving_size
+    // ("80 g", "1 bar (80g)") when that's all the product has.
+    let servingGrams = parseFloat(product.serving_quantity) || null;
+    if (!servingGrams && product.serving_size) {
+      const m = /([\d.]+)\s*g\b/i.exec(product.serving_size);
+      if (m) servingGrams = parseFloat(m[1]);
+    }
+
+    return {
+      name,
+      barcode: product.code || product._id || "",
+      kcal: Math.round(kcal),
+      protein: Math.round((protein ?? 0) * 10) / 10,
+      carbs: Math.round((carbs ?? 0) * 10) / 10,
+      fat: Math.round((fat ?? 0) * 10) / 10,
+      sat: Math.round((sat ?? 0) * 10) / 10,
+      sugar: Math.round((sugar ?? 0) * 10) / 10,
+      salt: Math.round((salt ?? 0) * 100) / 100,
+      servingGrams: servingGrams && servingGrams > 0 ? Math.round(servingGrams * 10) / 10 : null,
+    };
+  }
+
   async function fetchOpenFoodFacts(code) {
     try {
       const res = await fetch(
-        `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments,serving_quantity,serving_size`
+        `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=code,product_name,brands,nutriments,serving_quantity,serving_size`
       );
       if (!res.ok) return null;
       const data = await res.json();
       if (data.status !== 1 || !data.product) return null;
-      const n = data.product.nutriments || {};
-      const name = [data.product.brands, data.product.product_name].filter(Boolean).join(" — ") || "Scanned item";
-
-      // Prefer proper per-100g/ml figures when the database has them
-      let kcal = n["energy-kcal_100g"];
-      let protein = n.proteins_100g;
-      let carbs = n.carbohydrates_100g;
-      let fat = n.fat_100g;
-      let sat = n["saturated-fat_100g"];
-      let sugar = n.sugars_100g;
-      let salt = n.salt_100g;
-
-      // Fall back to per-serving figures and compute our own per-100g conversion —
-      // common for small servings (sauces, spices) where the database has the label
-      // numbers but the serving is too small for it to auto-compute a per-100g value.
-      if (kcal === undefined && n["energy-kcal_serving"] !== undefined) {
-        const servingGrams = parseFloat(data.product.serving_quantity) || null;
-        if (servingGrams && servingGrams > 0) {
-          const scale = 100 / servingGrams;
-          kcal = n["energy-kcal_serving"] * scale;
-          protein = (n.proteins_serving ?? 0) * scale;
-          carbs = (n.carbohydrates_serving ?? 0) * scale;
-          fat = (n.fat_serving ?? 0) * scale;
-          sat = (n["saturated-fat_serving"] ?? 0) * scale;
-          sugar = (n.sugars_serving ?? 0) * scale;
-          salt = (n.salt_serving ?? 0) * scale;
-        }
-      }
-
-      if (kcal === undefined || kcal === null) return null; // still nothing usable
-
-      // Per-item weight (e.g. "80g" for one bar in a multi-pack) — the label often
-      // states this even when it doesn't state per-item kcal, so default the add
-      // screen to it instead of an arbitrary 100g. serving_quantity is OFF's own
-      // parsed grams figure; fall back to pulling a number out of serving_size
-      // ("80 g", "1 bar (80g)") when that's all the product has.
-      let servingGrams = parseFloat(data.product.serving_quantity) || null;
-      if (!servingGrams && data.product.serving_size) {
-        const m = /([\d.]+)\s*g\b/i.exec(data.product.serving_size);
-        if (m) servingGrams = parseFloat(m[1]);
-      }
-
-      return {
-        name,
-        kcal: Math.round(kcal),
-        protein: Math.round((protein ?? 0) * 10) / 10,
-        carbs: Math.round((carbs ?? 0) * 10) / 10,
-        fat: Math.round((fat ?? 0) * 10) / 10,
-        sat: Math.round((sat ?? 0) * 10) / 10,
-        sugar: Math.round((sugar ?? 0) * 10) / 10,
-        salt: Math.round((salt ?? 0) * 100) / 100,
-        servingGrams: servingGrams && servingGrams > 0 ? Math.round(servingGrams * 10) / 10 : null,
-      };
+      return normalizeOffProduct(data.product);
     } catch (e) {
       return null; // offline, API down, or blocked — fall back to manual entry
+    }
+  }
+
+  // Free-text product search (e.g. "shepherds pie", "nature valley bars") — lets you
+  // find and log a branded/packaged food you don't have a barcode for, instead of
+  // typing its nutrition numbers in from scratch. Doesn't replace the built-in
+  // homemade recipes (still searched separately) — the two show up alongside each
+  // other in the same results list.
+  async function searchOpenFoodFactsText(query) {
+    try {
+      const res = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
+          query
+        )}&search_simple=1&json=1&page_size=15&fields=code,product_name,brands,nutriments,serving_quantity,serving_size`
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      const products = data.products || [];
+      const seen = new Set();
+      const out = [];
+      for (const p of products) {
+        const normalized = normalizeOffProduct(p);
+        if (!normalized || !normalized.name || normalized.name === "Scanned item") continue;
+        const key = normalized.name.toLowerCase();
+        if (seen.has(key)) continue; // OFF often has several near-duplicate entries for the same product
+        seen.add(key);
+        out.push(normalized);
+        if (out.length >= 8) break;
+      }
+      return out;
+    } catch (e) {
+      return []; // offline, API down, or blocked — local/manual results still work
     }
   }
 
@@ -2032,6 +2101,53 @@ export default function App() {
     }
   }
 
+  // Lands on the same editable "Custom food" screen the barcode scanner already
+  // uses — a live lookup is a starting point, not a final answer, so every field
+  // (including the name) stays a normal input the person can correct before saving.
+  function openCustomFoodFromProduct(found, fallbackBarcode = "") {
+    setCustomMode(true);
+    setPicked(null);
+    setRecipe(null);
+    setLabelScanNote("");
+    setWeightUnit(meal === "drinks" ? "ml" : "g");
+
+    if (found.servingGrams) {
+      // The product data states a per-item/serving weight (e.g. "80g" for one bar in a
+      // multi-pack) even though it usually doesn't state per-item kcal — default to
+      // logging by quantity at that weight instead of an arbitrary 100g by weight.
+      setAmountMode("count");
+      setCount(1);
+      setUnitWeight(found.servingGrams);
+      setGrams(found.servingGrams);
+    } else {
+      setAmountMode("grams");
+      setGrams(100);
+      setCount(1);
+      setUnitWeight(100);
+    }
+
+    setCustomFood({
+      name: found.name,
+      kcal: String(found.kcal),
+      protein: String(found.protein),
+      carbs: String(found.carbs),
+      fat: String(found.fat),
+      sat: String(found.sat),
+      sugar: String(found.sugar),
+      salt: found.salt !== undefined ? String(found.salt) : "",
+      units: "",
+      barcode: found.barcode || fallbackBarcode,
+    });
+  }
+
+  // Picking a live search result works exactly like scanning its barcode would —
+  // same editable form, same amount defaulting — just reached by typing instead.
+  function selectOnlineResult(product) {
+    setOnlineResults([]);
+    setQuery("");
+    openCustomFoodFromProduct(product);
+  }
+
   async function lookupBarcode(codeOverride) {
     const code = (codeOverride || barcodeInput).trim();
     if (!code) return;
@@ -2048,39 +2164,19 @@ export default function App() {
     const found = (await fetchOpenFoodFacts(code)) || (await fetchUSDA(code));
     setBarcodeLoading(false);
     setBarcodeMode(false);
-    setCustomMode(true);
-    setLabelScanNote("");
-    setWeightUnit(meal === "drinks" ? "ml" : "g");
 
-    if (found && found.servingGrams) {
-      // The product data states a per-item/serving weight (e.g. "80g" for one bar in a
-      // multi-pack) even though it usually doesn't state per-item kcal — default to
-      // logging by quantity at that weight instead of an arbitrary 100g by weight.
-      setAmountMode("count");
-      setCount(1);
-      setUnitWeight(found.servingGrams);
-      setGrams(found.servingGrams);
+    if (found) {
+      openCustomFoodFromProduct(found, code);
     } else {
+      setCustomMode(true);
+      setPicked(null);
+      setRecipe(null);
+      setLabelScanNote("");
+      setWeightUnit(meal === "drinks" ? "ml" : "g");
       setAmountMode("grams");
       setGrams(100);
       setCount(1);
       setUnitWeight(100);
-    }
-
-    if (found) {
-      setCustomFood({
-        name: found.name,
-        kcal: String(found.kcal),
-        protein: String(found.protein),
-        carbs: String(found.carbs),
-        fat: String(found.fat),
-        sat: String(found.sat),
-        sugar: String(found.sugar),
-        salt: found.salt !== undefined ? String(found.salt) : "",
-        units: "",
-        barcode: code,
-      });
-    } else {
       setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", salt: "", units: "", barcode: code });
     }
   }
@@ -3650,10 +3746,42 @@ export default function App() {
                           )}
                         </div>
                       ))}
-                      {query.trim() && results.length === 0 && recipeResults.length === 0 && comboResults.length === 0 && (
+                    </div>
+
+                    {onlineResults.length > 0 && (
+                      <>
+                        <span style={{ ...styles.sectionLabel, marginTop: 12, display: "block" }}>FROM OPENFOODFACTS</span>
+                        <div style={styles.resultsList}>
+                          {onlineResults.map((p) => (
+                            <button
+                              key={p.barcode || p.name}
+                              style={styles.resultRow}
+                              onClick={() => selectOnlineResult(p)}
+                            >
+                              <span>{p.name}</span>
+                              <span style={styles.resultKcal}>{p.kcal} kcal /100g</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {onlineSearchLoading && <p style={styles.barcodeHint}>Searching online…</p>}
+
+                    {query.trim().length >= 3 &&
+                      !onlineSearchLoading &&
+                      results.length === 0 &&
+                      recipeResults.length === 0 &&
+                      comboResults.length === 0 &&
+                      onlineResults.length === 0 && (
+                        <div style={styles.noResults}>No match, online or saved. You can add it as a custom food instead.</div>
+                      )}
+                    {query.trim().length > 0 &&
+                      query.trim().length < 3 &&
+                      results.length === 0 &&
+                      recipeResults.length === 0 &&
+                      comboResults.length === 0 && (
                         <div style={styles.noResults}>No match. You can add it as a custom food instead.</div>
                       )}
-                    </div>
                     <button
                       style={styles.customLink}
                       onClick={() => {
