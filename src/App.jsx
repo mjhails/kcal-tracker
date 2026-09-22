@@ -1883,7 +1883,14 @@ export default function App() {
   function normalizeOffProduct(product) {
     if (!product) return null;
     const n = product.nutriments || {};
-    const name = [product.brands, product.product_name].filter(Boolean).join(" — ") || "Scanned item";
+    // The barcode API returns brands/stores as comma-joined strings; the newer search
+    // API (search.openfoodfacts.org) returns them as arrays — normalize both to plain
+    // strings so the rest of this function (and shop-match checks elsewhere) don't
+    // need to care which one they got.
+    const asString = (v) => (Array.isArray(v) ? v.filter(Boolean).join(", ") : v || "");
+    const brandsStr = asString(product.brands);
+    const storesStr = asString(product.stores);
+    const name = [brandsStr, product.product_name].filter(Boolean).join(" — ") || "Scanned item";
 
     // Prefer proper per-100g/ml figures when the database has them
     let kcal = n["energy-kcal_100g"];
@@ -1935,7 +1942,7 @@ export default function App() {
       sugar: Math.round((sugar ?? 0) * 10) / 10,
       salt: Math.round((salt ?? 0) * 100) / 100,
       servingGrams: servingGrams && servingGrams > 0 ? Math.round(servingGrams * 10) / 10 : null,
-      stores: product.stores || "",
+      stores: storesStr,
     };
   }
 
@@ -1958,6 +1965,12 @@ export default function App() {
   // typing its nutrition numbers in from scratch. Doesn't replace the built-in
   // homemade recipes (still searched separately) — the two show up alongside each
   // other in the same results list.
+  //
+  // OFF also has a newer Elasticsearch-backed search API (search.openfoodfacts.org)
+  // that's more reliable under load, but it doesn't send CORS headers, so a browser
+  // blocks it outright (confirmed: works from a plain server-side fetch, fails with
+  // an opaque/blocked response from here) — it's not usable from this app. Stuck with
+  // the legacy cgi/search.pl endpoint, which does support CORS.
   async function searchOpenFoodFactsText(query) {
     try {
       const res = await fetch(
