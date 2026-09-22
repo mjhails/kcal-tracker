@@ -1431,18 +1431,40 @@ export default function App() {
     };
   }, [user]);
 
-  // Lock background scroll while any sheet is open. Without this, the page behind a
-  // fixed-position modal is still scrollable — on touch devices a swipe over the sheet
-  // can end up scrolling that hidden background instead of the sheet's own content,
-  // which looks like the sheet is frozen and makes buttons near its bottom unreachable.
+  // Lock background scroll while any sheet is open. `overflow: hidden` on body alone
+  // does NOT stop touch-scrolling on iOS Safari — the background page still rubber-bands
+  // under a swipe even though it's covered by a fixed-position modal, which looks exactly
+  // like the sheet itself is frozen and refusing to scroll. Pinning body in place with
+  // position: fixed (the standard iOS-safe body-scroll-lock technique) is what actually
+  // stops it there; we restore the exact scroll offset when the sheet closes.
   useEffect(() => {
     const modalOpen =
       showAdd || !!editingEntry || showCopyTo || showMoveTo || showSaveSelected || showQuickAdds || showWeight;
     if (!modalOpen) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const { body } = document;
+    const scrollY = window.scrollY;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = prevOverflow;
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.left = prev.left;
+      body.style.right = prev.right;
+      body.style.width = prev.width;
+      body.style.overflow = prev.overflow;
+      window.scrollTo(0, scrollY);
     };
   }, [showAdd, editingEntry, showCopyTo, showMoveTo, showSaveSelected, showQuickAdds, showWeight]);
 
