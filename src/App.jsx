@@ -1431,6 +1431,21 @@ export default function App() {
     };
   }, [user]);
 
+  // Lock background scroll while any sheet is open. Without this, the page behind a
+  // fixed-position modal is still scrollable — on touch devices a swipe over the sheet
+  // can end up scrolling that hidden background instead of the sheet's own content,
+  // which looks like the sheet is frozen and makes buttons near its bottom unreachable.
+  useEffect(() => {
+    const modalOpen =
+      showAdd || !!editingEntry || showCopyTo || showMoveTo || showSaveSelected || showQuickAdds || showWeight;
+    if (!modalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [showAdd, editingEntry, showCopyTo, showMoveTo, showSaveSelected, showQuickAdds, showWeight]);
+
   // Load body weight log once per signed-in user — private to them, like reminder settings
   useEffect(() => {
     if (!user) return;
@@ -5086,13 +5101,15 @@ const styles = {
     display: "flex",
     alignItems: "flex-end",
     justifyContent: "center",
-    zIndex: 50,
+    zIndex: 150,
   },
   sheet: {
     width: "100%",
     maxWidth: 480,
     maxHeight: "88dvh",
     overflowY: "auto",
+    overscrollBehavior: "contain",
+    WebkitOverflowScrolling: "touch",
     background: "rgba(16,16,24,0.94)",
     backdropFilter: "blur(24px)",
     WebkitBackdropFilter: "blur(24px)",
