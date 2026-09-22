@@ -1026,6 +1026,7 @@ export default function App() {
   const [moveToDate, setMoveToDate] = useState("");
   const [moveToMeal, setMoveToMeal] = useState(""); // "" = keep each item's existing meal group
   const [showSaveSelected, setShowSaveSelected] = useState(false);
+  const [showQuickAdds, setShowQuickAdds] = useState(false);
   const [copyToast, setCopyToast] = useState("");
   const [copyToastTitle, setCopyToastTitle] = useState("Copied");
   const [showCopyToast, setShowCopyToast] = useState(false);
@@ -2586,36 +2587,14 @@ export default function App() {
             )}
 
             {combos.length > 0 && (
-              <div style={styles.quickAddsSection}>
-                <span style={styles.sectionLabel}>QUICK ADDS</span>
-                <div style={styles.quickAddsList}>
-                  {combos.map((c) => {
-                    const ck = Math.round(c.items.reduce((s, it) => s + (it.kcal * it.grams) / 100, 0));
-                    return (
-                      <div key={c.id} style={styles.quickAddRow}>
-                        <button
-                          style={styles.quickAddMain}
-                          onClick={() => logCombo(c, defaultMealForNow())}
-                          aria-label={`Add ${c.name}`}
-                        >
-                          <span style={styles.quickAddPlus}>
-                            <Plus size={15} strokeWidth={2.25} />
-                          </span>
-                          <span style={styles.quickAddText}>
-                            <span style={styles.quickAddName}>{c.name}</span>
-                            <span style={styles.quickAddMeta}>
-                              {c.items.length} items · {ck} kcal
-                            </span>
-                          </span>
-                        </button>
-                        <button style={styles.trashBtn} onClick={() => deleteCombo(c.id)} aria-label={`Delete ${c.name}`}>
-                          <Trash2 size={15} strokeWidth={1.75} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <button style={styles.quickAddsTrigger} onClick={() => setShowQuickAdds(true)}>
+                <span style={styles.quickAddsTriggerLeft}>
+                  <BookmarkPlus size={16} strokeWidth={2} />
+                  Quick Adds
+                  <span style={styles.quickAddsTriggerCount}>{combos.length}</span>
+                </span>
+                <ChevronRight size={18} color="var(--muted)" />
+              </button>
             )}
           </>
         )}
@@ -3289,8 +3268,8 @@ export default function App() {
                     </div>
                     <p style={styles.barcodeHint}>
                       {saveDestination === "quickadd"
-                        ? "Shows on your main screen for one-tap logging."
-                        : "Saved as a recipe in your meal library, alongside the built-in ones — not shown on the main screen."}
+                        ? "Shows in Quick Adds for one-tap logging."
+                        : "Saved as a recipe in your meal library, alongside the built-in ones — not shown in Quick Adds."}
                     </p>
                     <div style={styles.saveComboRow}>
                       <input
@@ -4092,8 +4071,8 @@ export default function App() {
               </div>
               <p style={styles.barcodeHint}>
                 {saveDestination === "quickadd"
-                  ? "Shows on your main screen for one-tap logging."
-                  : "Saved as a recipe in your meal library, alongside the built-in ones — not shown on the main screen."}
+                  ? "Shows in Quick Adds for one-tap logging."
+                  : "Saved as a recipe in your meal library, alongside the built-in ones — not shown in Quick Adds."}
               </p>
               <input
                 autoFocus
@@ -4105,6 +4084,48 @@ export default function App() {
               <button style={styles.primaryBtn} disabled={!comboName.trim()} onClick={handleSaveSelectedAsMeal}>
                 Save
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Adds — pulled out of the main Today flow into its own popup so the
+          page itself stays short; the trigger row is all that lives inline. */}
+      {showQuickAdds && (
+        <div style={styles.overlay} onClick={() => setShowQuickAdds(false)}>
+          <div style={styles.sheet} onClick={(ev) => ev.stopPropagation()}>
+            <div style={styles.sheetHeader}>
+              <span style={styles.sheetTitle}>Quick Adds</span>
+              <button style={styles.iconBtn} onClick={() => setShowQuickAdds(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={styles.quickAddsList}>
+              {combos.map((c) => {
+                const ck = Math.round(c.items.reduce((s, it) => s + (it.kcal * it.grams) / 100, 0));
+                return (
+                  <div key={c.id} style={styles.quickAddRow}>
+                    <button
+                      style={styles.quickAddMain}
+                      onClick={() => logCombo(c, defaultMealForNow())}
+                      aria-label={`Add ${c.name}`}
+                    >
+                      <span style={styles.quickAddPlus}>
+                        <Plus size={15} strokeWidth={2.25} />
+                      </span>
+                      <span style={styles.quickAddText}>
+                        <span style={styles.quickAddName}>{c.name}</span>
+                        <span style={styles.quickAddMeta}>
+                          {c.items.length} items · {ck} kcal
+                        </span>
+                      </span>
+                    </button>
+                    <button style={styles.trashBtn} onClick={() => deleteCombo(c.id)} aria-label={`Delete ${c.name}`}>
+                      <Trash2 size={15} strokeWidth={1.75} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -4659,6 +4680,37 @@ const styles = {
   },
   mealSection: { marginBottom: 30 },
   quickAddsSection: { marginTop: 20, marginBottom: 28, display: "flex", flexDirection: "column", gap: 12 },
+  quickAddsTrigger: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    background: "var(--surface)",
+    border: "1px solid var(--glass-border)",
+    borderRadius: 16,
+    padding: "14px 16px",
+    marginTop: 20,
+    marginBottom: 28,
+    color: "var(--paper)",
+    cursor: "pointer",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), 0 2px 4px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.35)",
+  },
+  quickAddsTriggerLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    fontSize: 14,
+    fontWeight: 700,
+  },
+  quickAddsTriggerCount: {
+    background: "var(--sage-tint)",
+    color: "var(--sage)",
+    fontSize: 11.5,
+    fontWeight: 700,
+    borderRadius: 999,
+    padding: "2px 9px",
+    fontVariantNumeric: "tabular-nums",
+  },
   quickAddsList: { display: "flex", flexDirection: "column", gap: 10 },
   quickAddRow: {
     display: "flex",
