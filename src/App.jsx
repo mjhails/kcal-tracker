@@ -4321,8 +4321,14 @@ html, body { overflow-x: hidden; }
 }
 .celebrate-toast { animation: toastIn 2.8s ease forwards; }
 @keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 1px rgba(34,211,238,0.9), 0 0 14px rgba(34,211,238,0.35), 0 0 30px rgba(34,211,238,0.14); }
-  50% { box-shadow: 0 0 1px rgba(34,211,238,1), 0 0 26px rgba(34,211,238,0.65), 0 0 56px rgba(34,211,238,0.3); }
+  0%, 100% {
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.4), inset 0 -1px 0 rgba(34,211,238,0.25), 0 0 1px rgba(34,211,238,0.9),
+      0 0 14px rgba(34,211,238,0.35), 0 0 30px rgba(34,211,238,0.14);
+  }
+  50% {
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.4), inset 0 -1px 0 rgba(34,211,238,0.4), 0 0 1px rgba(34,211,238,1),
+      0 0 26px rgba(34,211,238,0.65), 0 0 56px rgba(34,211,238,0.3);
+  }
 }
 .pulse-glow { animation: pulseGlow 2.6s ease-in-out infinite; }
 input:focus, button:focus-visible { outline: 2px solid var(--sage-deep); outline-offset: 2px; }
@@ -4446,7 +4452,8 @@ const styles = {
     border: `1px solid var(--glass-border)`,
     borderRadius: 999,
     padding: "8px 10px",
-    boxShadow: "0 1px 1px rgba(34,211,238,0.25), 0 10px 20px rgba(0,0,0,0.55), 0 20px 45px rgba(0,0,0,0.4)",
+    boxShadow:
+      "inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.3), 0 1px 1px rgba(34,211,238,0.25), 0 10px 20px rgba(0,0,0,0.55), 0 20px 45px rgba(0,0,0,0.4)",
   },
   bottomNavBtn: {
     display: "flex",
@@ -4514,11 +4521,13 @@ const styles = {
     borderRadius: 999,
     padding: "15px 0",
     minHeight: 52,
+    marginBottom: 18,
     fontSize: 15,
     fontWeight: 800,
     letterSpacing: "-0.01em",
     cursor: "pointer",
-    boxShadow: "0 0 1px rgba(34,211,238,0.9), 0 0 24px rgba(34,211,238,0.45), 0 14px 30px rgba(0,0,0,0.5)",
+    boxShadow:
+      "inset 0 1.5px 0 rgba(255,255,255,0.55), inset 0 -4px 8px rgba(0,20,25,0.3), 0 0 1px rgba(34,211,238,0.9), 0 0 24px rgba(34,211,238,0.45), 0 14px 30px rgba(0,0,0,0.5)",
   },
   iconBtn: {
     background: "var(--glass)",
@@ -4562,10 +4571,10 @@ const styles = {
     whiteSpace: "nowrap",
   },
   card: {
-    background: "var(--surface)",
+    background: "linear-gradient(165deg, rgba(255,255,255,0.05), rgba(255,255,255,0) 40%), var(--surface)",
     border: "1px solid var(--glass-border)",
     boxShadow:
-      "0 0 0 1px rgba(34,211,238,0.06), 0 2px 4px rgba(0,0,0,0.3), 0 24px 50px rgba(0,0,0,0.5), 0 8px 20px rgba(34,211,238,0.08)",
+      "inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(34,211,238,0.06), 0 2px 4px rgba(0,0,0,0.3), 0 24px 50px rgba(0,0,0,0.5), 0 8px 20px rgba(34,211,238,0.08)",
     borderRadius: 24,
     padding: "28px 24px",
   },
@@ -4581,6 +4590,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     transition: "background 0.4s ease",
+    filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.5))",
   },
   ringInner: {
     width: 80,
@@ -4617,10 +4627,10 @@ const styles = {
   },
   macroUnit: { color: "var(--muted)", marginLeft: 1 },
   waterCard: {
-    background: "var(--surface)",
+    background: "linear-gradient(165deg, rgba(255,255,255,0.05), rgba(255,255,255,0) 40%), var(--surface)",
     border: "1px solid var(--glass-border)",
     boxShadow:
-      "0 0 0 1px rgba(34,211,238,0.05), 0 2px 4px rgba(0,0,0,0.25), 0 16px 36px rgba(0,0,0,0.45), 0 6px 16px rgba(34,211,238,0.06)",
+      "inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(34,211,238,0.05), 0 2px 4px rgba(0,0,0,0.25), 0 16px 36px rgba(0,0,0,0.45), 0 6px 16px rgba(34,211,238,0.06)",
     borderRadius: 20,
     padding: "22px 20px",
     marginTop: 20,
