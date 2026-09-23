@@ -1027,6 +1027,7 @@ export default function App() {
   const [recipe, setRecipe] = useState(null);
   const [recipeServings, setRecipeServings] = useState(1);
   const [recipeGrams, setRecipeGrams] = useState({});
+  const [recipeSplitPeople, setRecipeSplitPeople] = useState(1);
   const [recipeMatches, setRecipeMatches] = useState({}); // ingredient index -> matched shop product
   const [recipeMatchLoading, setRecipeMatchLoading] = useState(false);
   const [recipeMatchNote, setRecipeMatchNote] = useState("");
@@ -1751,6 +1752,7 @@ export default function App() {
       g[i] = it.grams;
     });
     setRecipeGrams(g);
+    setRecipeSplitPeople(1);
     setRecipeMatches({});
     setRecipeMatchNote("");
     if (r.defaultMeal) setMeal(r.defaultMeal);
@@ -1821,6 +1823,11 @@ export default function App() {
 
   async function confirmRecipe() {
     if (!recipe) return;
+    // Ingredient amounts as typed are the whole meal (e.g. a full pack of mince used
+    // for the family) — dividing by the head count here logs only this person's
+    // share, while the ingredient list and "kcal total" preview keep showing the
+    // whole thing so it still reads like the meal actually cooked.
+    const splitBy = Math.max(1, parseFloat(recipeSplitPeople) || 1);
     const newEntries = recipe.items
       .map((it, i) => {
         const match = recipeMatches[i];
@@ -1837,7 +1844,9 @@ export default function App() {
           barcode: match.barcode || "",
         };
       })
-      .map((food, i) => (food ? { ...food, id: uid(), grams: parseFloat(recipeGrams[i]) || 0, meal } : null))
+      .map((food, i) =>
+        food ? { ...food, id: uid(), grams: (parseFloat(recipeGrams[i]) || 0) / splitBy, meal } : null
+      )
       .filter(Boolean);
     if (newEntries.length === 0) return;
     await saveEntries([...entries, ...newEntries]);
@@ -2444,6 +2453,7 @@ export default function App() {
     setUnitWeight(100);
     setGrams(100);
     setRecipe(null);
+    setRecipeSplitPeople(1);
     setRecipeMatches({});
     setRecipeMatchNote("");
     setBarcodeMode(false);
@@ -4080,6 +4090,31 @@ export default function App() {
                   </div>
                 </div>
 
+                <div style={styles.servingsRow}>
+                  <span style={styles.fieldLabelSmall}>
+                    Split between{" "}
+                    {recipeSplitPeople > 1 ? `${recipeSplitPeople} people` : "(just you)"}
+                  </span>
+                  <div style={styles.servingsStepper}>
+                    <button
+                      style={styles.stepperBtn}
+                      onClick={() => setRecipeSplitPeople(Math.max(1, recipeSplitPeople - 1))}
+                    >
+                      −
+                    </button>
+                    <span style={styles.servingsVal}>{recipeSplitPeople}</span>
+                    <button style={styles.stepperBtn} onClick={() => setRecipeSplitPeople(recipeSplitPeople + 1)}>
+                      +
+                    </button>
+                  </div>
+                </div>
+                {recipeSplitPeople > 1 && (
+                  <p style={styles.barcodeHint}>
+                    Enter the full amounts you're actually cooking with below (e.g. a whole pack of mince) — only
+                    your 1-of-{recipeSplitPeople} share gets logged.
+                  </p>
+                )}
+
                 {preferredShop.trim() && (
                   <button
                     type="button"
@@ -4139,14 +4174,19 @@ export default function App() {
                 </div>
 
                 <div style={styles.pickedPreview}>
-                  {Math.round(
-                    recipe.items.reduce((s, it, i) => {
+                  {(() => {
+                    const total = recipe.items.reduce((s, it, i) => {
                       const food = recipeMatches[i] || findFood(it.food, customFoods);
                       const g = recipeGrams[i] ?? it.grams;
                       return s + (food ? (food.kcal * g) / 100 : 0);
-                    }, 0)
-                  )}{" "}
-                  kcal total for this recipe
+                    }, 0);
+                    if (recipeSplitPeople > 1) {
+                      return `${Math.round(total)} kcal total · ${Math.round(
+                        total / recipeSplitPeople
+                      )} kcal for your portion (1 of ${recipeSplitPeople})`;
+                    }
+                    return `${Math.round(total)} kcal total for this recipe`;
+                  })()}
                 </div>
                 <div style={styles.sheetActions}>
                   <button style={styles.secondaryBtn} onClick={() => setRecipe(null)}>
