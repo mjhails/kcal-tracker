@@ -1767,12 +1767,13 @@ export default function App() {
     setRecipeMatchLoading(true);
     setRecipeMatchNote("");
     const shop = preferredShop.trim();
-    const shopLower = shop.toLowerCase();
-    const results = await Promise.all(recipe.items.map((it) => searchOpenFoodFactsText(it.food)));
+    // Queries OFF's store-tag filter directly per ingredient (see
+    // searchOpenFoodFactsByStore) instead of a generic search filtered afterward —
+    // the generic search alone almost never surfaces a shop-tagged match at all.
+    const results = await Promise.all(recipe.items.map((it) => searchOpenFoodFactsByStore(it.food, shop)));
     const matches = {};
     results.forEach((list, i) => {
-      const hit = list.find((p) => p.stores.toLowerCase().includes(shopLower));
-      if (hit) matches[i] = hit;
+      if (list[0]) matches[i] = list[0];
     });
     setRecipeMatches(matches);
     setRecipeMatchLoading(false);
@@ -1960,11 +1961,50 @@ export default function App() {
     }
   }
 
+  function dedupeOffResults(products, limit) {
+    const seen = new Set();
+    const out = [];
+    for (const p of products) {
+      const normalized = normalizeOffProduct(p);
+      if (!normalized || !normalized.name || normalized.name === "Scanned item") continue;
+      const key = normalized.name.toLowerCase();
+      if (seen.has(key)) continue; // OFF often has several near-duplicate entries for the same product
+      seen.add(key);
+      out.push(normalized);
+      if (limit && out.length >= limit) break;
+    }
+    return out;
+  }
+
+  // Products matching a search term AND tagged as stocked at a specific shop, using
+  // OFF's own faceted-search parameters (tagtype/tag_contains/tag) rather than a plain
+  // text search filtered client-side afterward. That distinction matters a lot in
+  // practice: a generic search for "onion" returns ~20 results with zero Aldi matches
+  // (OFF's data skews heavily French/European, so a plain top-20 rarely surfaces a
+  // specific UK discount retailer) — the same search scoped server-side to
+  // stores contains "aldi" returns 49 real matches, plain "Onions" among them.
+  async function searchOpenFoodFactsByStore(query, shop) {
+    try {
+      const res = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}` +
+          `&tagtype_0=stores&tag_contains_0=contains&tag_0=${encodeURIComponent(shop)}` +
+          `&search_simple=1&json=1&page_size=10&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,stores`
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      return dedupeOffResults(data.products || []);
+    } catch (e) {
+      return [];
+    }
+  }
+
   // Free-text product search (e.g. "shepherds pie", "nature valley bars") — lets you
   // find and log a branded/packaged food you don't have a barcode for, instead of
   // typing its nutrition numbers in from scratch. Doesn't replace the built-in
   // homemade recipes (still searched separately) — the two show up alongside each
-  // other in the same results list.
+  // other in the same results list. When a preferred shop is set, runs the shop-scoped
+  // search above alongside the generic one and puts real shop matches first — the
+  // generic search alone essentially never surfaces them (see above).
   //
   // OFF also has a newer Elasticsearch-backed search API (search.openfoodfacts.org)
   // that's more reliable under load, but it doesn't send CORS headers, so a browser
@@ -1972,39 +2012,27 @@ export default function App() {
   // an opaque/blocked response from here) — it's not usable from this app. Stuck with
   // the legacy cgi/search.pl endpoint, which does support CORS.
   async function searchOpenFoodFactsText(query) {
+    const shop = preferredShop.trim();
     try {
-      const res = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
-          query
-        )}&search_simple=1&json=1&page_size=20&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,stores`
-      );
-      if (!res.ok) return [];
-      const data = await res.json();
-      const products = data.products || [];
-      const seen = new Set();
-      const all = [];
-      for (const p of products) {
-        const normalized = normalizeOffProduct(p);
-        if (!normalized || !normalized.name || normalized.name === "Scanned item") continue;
-        const key = normalized.name.toLowerCase();
-        if (seen.has(key)) continue; // OFF often has several near-duplicate entries for the same product
-        seen.add(key);
-        all.push(normalized);
+      const [shopResults, genericData] = await Promise.all([
+        shop ? searchOpenFoodFactsByStore(query, shop) : Promise.resolve([]),
+        fetch(
+          `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
+            query
+          )}&search_simple=1&json=1&page_size=20&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,stores`
+        )
+          .then((r) => (r.ok ? r.json() : { products: [] }))
+          .catch(() => ({ products: [] })),
+      ]);
+      const seen = new Set(shopResults.map((p) => p.name.toLowerCase()));
+      const genericResults = dedupeOffResults((genericData.products || []).filter((p) => p));
+      const merged = [...shopResults];
+      for (const p of genericResults) {
+        if (seen.has(p.name.toLowerCase())) continue;
+        seen.add(p.name.toLowerCase());
+        merged.push(p);
       }
-      // Bias toward the person's preferred shop when set, without hiding everything
-      // else — OFF's per-product "stores" tagging is community-contributed and
-      // inconsistent (a real Aldi product often just isn't tagged "Aldi"), so this
-      // reorders rather than filters, and only when there's actually a match to sort
-      // by (avoids reshuffling — and losing best-match order — for every search).
-      const shop = preferredShop.trim().toLowerCase();
-      const ranked = shop
-        ? [...all].sort((a, b) => {
-            const aMatch = a.stores.toLowerCase().includes(shop) ? 0 : 1;
-            const bMatch = b.stores.toLowerCase().includes(shop) ? 0 : 1;
-            return aMatch - bMatch;
-          })
-        : all;
-      return ranked.slice(0, 8);
+      return merged.slice(0, 8);
     } catch (e) {
       return []; // offline, API down, or blocked — local/manual results still work
     }
