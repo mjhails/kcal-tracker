@@ -104,6 +104,9 @@ const FOOD_DB = [
   { name: "Porridge oats, made with water", kcal: 50, protein: 1.7, carbs: 8.6, fat: 1.1, sat: 0.2, sugar: 0.3, unit: { grams: 200, label: "bowl" } },
   { name: "Porridge oats, dry (uncooked)", kcal: 375, protein: 11.2, carbs: 60.4, fat: 8.7, sat: 1.5, sugar: 1, unit: { grams: 40, label: "portion (dry)" } },
   { name: "Egg, boiled", kcal: 143, protein: 12.6, carbs: 0.7, fat: 9.9, sat: 3.1, sugar: 0.7, unit: { grams: 50, label: "egg" } },
+  { name: "Egg, fried (in oil)", kcal: 196, protein: 13.6, carbs: 0.9, fat: 15.3, sat: 3.7, sugar: 0.9, unit: { grams: 60, label: "egg" } },
+  { name: "Egg, poached", kcal: 147, protein: 12.5, carbs: 0.7, fat: 10.2, sat: 2.9, sugar: 0.7, unit: { grams: 50, label: "egg" } },
+  { name: "Egg, scrambled (with milk & butter)", kcal: 168, protein: 10.9, carbs: 1.1, fat: 13.3, sat: 5.4, sugar: 1, unit: { grams: 120, label: "portion (2 eggs)" } },
   { name: "Salmon fillet, baked", kcal: 197, protein: 24, carbs: 0, fat: 11, sat: 2.1, sugar: 0, unit: { grams: 130, label: "fillet" } },
   { name: "Broccoli, boiled", kcal: 24, protein: 2.4, carbs: 1.1, fat: 0.5, sat: 0.1, sugar: 0.9, unit: { grams: 80, label: "portion" } },
   { name: "Potato, baked (with skin)", kcal: 136, protein: 3.9, carbs: 31.7, fat: 0.2, sat: 0, sugar: 1.2, unit: { grams: 180, label: "potato" } },
@@ -286,19 +289,19 @@ const FOOD_DB = [
   // ---- Aldi staples for family cooking (mince, veg, pasta/rice, tinned) — the ones
   // that came up empty on OpenFoodFacts because they're loose/unbranded or the
   // search API was rate-limited; kept local so they're instant and never fail ----
-  { name: "Aldi Ashfields British Pork Mince (12% Fat)", kcal: 196, protein: 19.5, carbs: 0, fat: 13, sat: 4.8, sugar: 0, unit: { grams: 100, label: "portion" } },
-  { name: "Aldi Ashfields British Beef Mince (20% Fat)", kcal: 249, protein: 17.5, carbs: 0, fat: 20, sat: 9, sugar: 0, unit: { grams: 100, label: "portion" } },
-  { name: "Aldi Ashfields British Lamb Mince", kcal: 283, protein: 18, carbs: 0, fat: 23.4, sat: 10.6, sugar: 0, unit: { grams: 100, label: "portion" } },
-  { name: "Aldi Ashfields British Turkey Mince", kcal: 148, protein: 20.5, carbs: 0, fat: 7, sat: 2.1, sugar: 0, unit: { grams: 100, label: "portion" } },
-  { name: "Aldi Ashfields Diced British Beef", kcal: 145, protein: 22, carbs: 0, fat: 6, sat: 2.6, sugar: 0, unit: { grams: 125, label: "portion" } },
+  { name: "Aldi Ashfields British Pork Mince (12% Fat)", kcal: 196, protein: 19.5, carbs: 0, fat: 13, sat: 4.8, sugar: 0, unit: { grams: 400, label: "pack" } },
+  { name: "Aldi Ashfields British Beef Mince (20% Fat)", kcal: 249, protein: 17.5, carbs: 0, fat: 20, sat: 9, sugar: 0, unit: { grams: 400, label: "pack" } },
+  { name: "Aldi Ashfields British Lamb Mince", kcal: 283, protein: 18, carbs: 0, fat: 23.4, sat: 10.6, sugar: 0, unit: { grams: 500, label: "pack" } },
+  { name: "Aldi Ashfields British Turkey Mince", kcal: 148, protein: 20.5, carbs: 0, fat: 7, sat: 2.1, sugar: 0, unit: { grams: 500, label: "pack" } },
+  { name: "Aldi Ashfields Diced British Beef", kcal: 145, protein: 22, carbs: 0, fat: 6, sat: 2.6, sugar: 0, unit: { grams: 500, label: "pack" } },
   { name: "Aldi Fusilli Pasta, dried (uncooked)", kcal: 349, protein: 12, carbs: 71, fat: 1.6, sat: 0.3, sugar: 2.6, unit: { grams: 75, label: "portion (dry)" } },
   { name: "Aldi Basmati Rice, dried (uncooked)", kcal: 349, protein: 7.9, carbs: 79.1, fat: 1.4, sat: 0.3, sugar: 0.1, unit: { grams: 75, label: "portion (dry)" } },
-  { name: "Aldi Four Seasons Chopped Tomatoes", kcal: 32, protein: 1.2, carbs: 5.8, fat: 0.2, sat: 0, sugar: 5, unit: { grams: 200, label: "half tin" } },
+  { name: "Aldi Four Seasons Chopped Tomatoes", kcal: 32, protein: 1.2, carbs: 5.8, fat: 0.2, sat: 0, sugar: 5, unit: { grams: 400, label: "tin" } },
   { name: "Aldi Grower's Harvest Baby Potatoes", kcal: 76, protein: 1.8, carbs: 17, fat: 0.2, sat: 0, sugar: 0.8, unit: { grams: 180, label: "portion" } },
   { name: "Aldi Grower's Harvest Carrots", kcal: 35, protein: 0.7, carbs: 7.6, fat: 0.2, sat: 0, sugar: 4.7, unit: { grams: 80, label: "portion" } },
   { name: "Aldi Grower's Harvest Onions", kcal: 40, protein: 1.1, carbs: 7.9, fat: 0.2, sat: 0, sugar: 4.2, unit: { grams: 90, label: "onion" } },
   { name: "Aldi Fisherman's Choice Salmon Fillets", kcal: 200, protein: 20, carbs: 0, fat: 13, sat: 2.5, sugar: 0, unit: { grams: 125, label: "fillet" } },
-  { name: "Aldi Fisherman's Choice Tuna Chunks in Spring Water", kcal: 109, protein: 25, carbs: 0, fat: 0.8, sat: 0.2, sugar: 0, unit: { grams: 80, label: "half tin, drained" } },
+  { name: "Aldi Fisherman's Choice Tuna Chunks in Spring Water", kcal: 109, protein: 25, carbs: 0, fat: 0.8, sat: 0.2, sugar: 0, unit: { grams: 100, label: "tin, drained" } },
   // ---- National brands (condiments, bread, cereal — the ones people search by name) ----
   { name: "Hellmann's Real Mayonnaise", kcal: 711, protein: 1, carbs: 1, fat: 78, sat: 6.5, sugar: 1, unit: { grams: 15, label: "tbsp" } },
   { name: "Hellmann's Light Mayonnaise", kcal: 288, protein: 1, carbs: 8, fat: 28, sat: 2.2, sugar: 5, unit: { grams: 15, label: "tbsp" } },
@@ -539,6 +542,9 @@ const FOOD_DB = [
   { name: "Runner beans, boiled", kcal: 18, protein: 1.4, carbs: 2.3, fat: 0.4, sat: 0.1, sugar: 1.9, unit: { grams: 80, label: "portion" } },
   { name: "Swede, boiled", kcal: 11, protein: 0.5, carbs: 2.3, fat: 0.1, sat: 0, sugar: 2.3, unit: { grams: 80, label: "portion" } },
   { name: "Garlic, raw", kcal: 98, protein: 7.9, carbs: 16.3, fat: 0.6, sat: 0.1, sugar: 1, unit: { grams: 3, label: "clove" } },
+  { name: "Ginger, root, raw", kcal: 80, protein: 1.8, carbs: 17.8, fat: 0.8, sat: 0.2, sugar: 1.7, unit: { grams: 5, label: "tsp, grated" } },
+  { name: "Aldi Bramwells Ginger Puree", kcal: 75, protein: 1.2, carbs: 16, fat: 0.5, sat: 0.1, sugar: 10, unit: { grams: 190, label: "jar" } },
+  { name: "Aldi Bramwells Garlic Puree", kcal: 73, protein: 3.5, carbs: 14, fat: 0.4, sat: 0.1, sugar: 2, unit: { grams: 190, label: "jar" } },
   { name: "Spring onion, raw", kcal: 23, protein: 2, carbs: 3, fat: 0.5, sat: 0.1, sugar: 2.3, unit: { grams: 15, label: "2 onions" } },
   { name: "Lettuce, iceberg", kcal: 13, protein: 0.7, carbs: 1.9, fat: 0.2, sat: 0, sugar: 1.9, unit: { grams: 30, label: "handful" } },
   { name: "Rocket", kcal: 25, protein: 2.6, carbs: 2, fat: 0.7, sat: 0.1, sugar: 2, unit: { grams: 20, label: "handful" } },
@@ -1018,6 +1024,7 @@ export default function App() {
   const [grams, setGrams] = useState(100);
   const [customMode, setCustomMode] = useState(false);
   const [customFood, setCustomFood] = useState({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", salt: "", units: "", barcode: "" });
+  const [customFoodPackGrams, setCustomFoodPackGrams] = useState(null); // whole-pack weight from OFF, when it has one — lets "use the full pack" be one tap instead of typing it in
   const [labelScanLoading, setLabelScanLoading] = useState(false);
   const [labelScanNote, setLabelScanNote] = useState("");
   const [meal, setMeal] = useState(defaultMealForNow());
@@ -1743,6 +1750,7 @@ export default function App() {
     setGrams(100);
     setCustomMode(false);
     setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", salt: "", units: "", barcode: "" });
+    setCustomFoodPackGrams(null);
     // Guard against onClick={openAdd} passing the click event itself as mealOverride —
     // only a genuine meal key should ever override the time-of-day default.
     setMeal(MEALS.some((m) => m.key === mealOverride) ? mealOverride : defaultMealForNow());
@@ -1958,6 +1966,20 @@ export default function App() {
       if (m) servingGrams = parseFloat(m[1]);
     }
 
+    // The whole-pack weight — different from servingGrams above (one bar vs. the
+    // whole box). product_quantity is OFF's own parsed grams figure when they have
+    // it; otherwise pull it out of the free-text quantity field ("400 g", "1kg",
+    // "6x25g" for a multipack — total, not per-item).
+    let packGrams = parseFloat(product.product_quantity) || null;
+    if (!packGrams && product.quantity) {
+      const multi = /(\d+)\s*x\s*([\d.]+)\s*g\b/i.exec(product.quantity);
+      const kg = /([\d.]+)\s*kg\b/i.exec(product.quantity);
+      const g = /([\d.]+)\s*g\b/i.exec(product.quantity);
+      if (multi) packGrams = parseFloat(multi[1]) * parseFloat(multi[2]);
+      else if (kg) packGrams = parseFloat(kg[1]) * 1000;
+      else if (g) packGrams = parseFloat(g[1]);
+    }
+
     return {
       name,
       barcode: product.code || product._id || "",
@@ -1969,6 +1991,7 @@ export default function App() {
       sugar: Math.round((sugar ?? 0) * 10) / 10,
       salt: Math.round((salt ?? 0) * 100) / 100,
       servingGrams: servingGrams && servingGrams > 0 ? Math.round(servingGrams * 10) / 10 : null,
+      packGrams: packGrams && packGrams > 0 ? Math.round(packGrams * 10) / 10 : null,
       stores: storesStr,
     };
   }
@@ -2004,7 +2027,7 @@ export default function App() {
   async function fetchOpenFoodFacts(code) {
     try {
       const data = await fetchOffJson(
-        `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=code,product_name,brands,nutriments,serving_quantity,serving_size`
+        `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=code,product_name,brands,nutriments,serving_quantity,serving_size,product_quantity,quantity`
       );
       if (!data || data.status !== 1 || !data.product) return null;
       return normalizeOffProduct(data.product);
@@ -2040,7 +2063,7 @@ export default function App() {
       const data = await fetchOffJson(
         `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}` +
           `&tagtype_0=stores&tag_contains_0=contains&tag_0=${encodeURIComponent(shop)}` +
-          `&search_simple=1&json=1&page_size=10&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,stores`
+          `&search_simple=1&json=1&page_size=10&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,product_quantity,quantity,stores`
       );
       return dedupeOffResults((data && data.products) || []);
     } catch (e) {
@@ -2069,7 +2092,7 @@ export default function App() {
         fetchOffJson(
           `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
             query
-          )}&search_simple=1&json=1&page_size=20&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,stores`
+          )}&search_simple=1&json=1&page_size=20&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,product_quantity,quantity,stores`
         ),
       ]);
       const seen = new Set(shopResults.map((p) => p.name.toLowerCase()));
@@ -2308,6 +2331,7 @@ export default function App() {
       units: "",
       barcode: found.barcode || fallbackBarcode,
     });
+    setCustomFoodPackGrams(found.packGrams || null);
   }
 
   // Picking a live search result works exactly like scanning its barcode would —
@@ -2348,6 +2372,7 @@ export default function App() {
       setCount(1);
       setUnitWeight(100);
       setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", salt: "", units: "", barcode: code });
+      setCustomFoodPackGrams(null);
     }
   }
 
@@ -2486,6 +2511,7 @@ export default function App() {
     setPicked(null);
     setCustomMode(false);
     setCustomFood({ name: "", kcal: "", protein: "", carbs: "", fat: "", sat: "", sugar: "", salt: "", units: "", barcode: "" });
+    setCustomFoodPackGrams(null);
     setLabelScanNote("");
     setAmountMode("grams");
     setCount(1);
@@ -4009,6 +4035,7 @@ export default function App() {
                         setCount(1);
                         setUnitWeight(100);
                         setWeightUnit(meal === "drinks" ? "ml" : "g");
+                        setCustomFoodPackGrams(null);
                       }}
                     >
                       + Enter a custom food
@@ -4321,6 +4348,20 @@ export default function App() {
                   </div>
                 </div>
                 <label style={styles.fieldLabel}>Amount</label>
+                {customFoodPackGrams && (
+                  <button
+                    type="button"
+                    style={{ ...styles.customLink, marginTop: 0 }}
+                    onClick={() => {
+                      setAmountMode("count");
+                      setCount(1);
+                      setUnitWeight(customFoodPackGrams);
+                      setGrams(customFoodPackGrams);
+                    }}
+                  >
+                    Full pack is {customFoodPackGrams}g — tap to use the whole thing
+                  </button>
+                )}
                 <div style={styles.mealChipRow}>
                   <button
                     style={{ ...styles.mealChip, ...(amountMode === "count" ? styles.mealChipActive : {}) }}
