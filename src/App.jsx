@@ -283,6 +283,22 @@ const FOOD_DB = [
   { name: "Aldi Farm Select Bananas", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" } },
   { name: "Aldi Farm Select Braeburn Apples", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 182, label: "apple" } },
   { name: "Aldi Crestwood High Protein Pasta", kcal: 335, protein: 25, carbs: 45, fat: 3, sat: 0.5, sugar: 2, unit: { grams: 75, label: "portion (dry)" } },
+  // ---- Aldi staples for family cooking (mince, veg, pasta/rice, tinned) — the ones
+  // that came up empty on OpenFoodFacts because they're loose/unbranded or the
+  // search API was rate-limited; kept local so they're instant and never fail ----
+  { name: "Aldi Ashfields British Pork Mince (12% Fat)", kcal: 196, protein: 19.5, carbs: 0, fat: 13, sat: 4.8, sugar: 0, unit: { grams: 100, label: "portion" } },
+  { name: "Aldi Ashfields British Beef Mince (20% Fat)", kcal: 249, protein: 17.5, carbs: 0, fat: 20, sat: 9, sugar: 0, unit: { grams: 100, label: "portion" } },
+  { name: "Aldi Ashfields British Lamb Mince", kcal: 283, protein: 18, carbs: 0, fat: 23.4, sat: 10.6, sugar: 0, unit: { grams: 100, label: "portion" } },
+  { name: "Aldi Ashfields British Turkey Mince", kcal: 148, protein: 20.5, carbs: 0, fat: 7, sat: 2.1, sugar: 0, unit: { grams: 100, label: "portion" } },
+  { name: "Aldi Ashfields Diced British Beef", kcal: 145, protein: 22, carbs: 0, fat: 6, sat: 2.6, sugar: 0, unit: { grams: 125, label: "portion" } },
+  { name: "Aldi Fusilli Pasta, dried (uncooked)", kcal: 349, protein: 12, carbs: 71, fat: 1.6, sat: 0.3, sugar: 2.6, unit: { grams: 75, label: "portion (dry)" } },
+  { name: "Aldi Basmati Rice, dried (uncooked)", kcal: 349, protein: 7.9, carbs: 79.1, fat: 1.4, sat: 0.3, sugar: 0.1, unit: { grams: 75, label: "portion (dry)" } },
+  { name: "Aldi Four Seasons Chopped Tomatoes", kcal: 32, protein: 1.2, carbs: 5.8, fat: 0.2, sat: 0, sugar: 5, unit: { grams: 200, label: "half tin" } },
+  { name: "Aldi Grower's Harvest Baby Potatoes", kcal: 76, protein: 1.8, carbs: 17, fat: 0.2, sat: 0, sugar: 0.8, unit: { grams: 180, label: "portion" } },
+  { name: "Aldi Grower's Harvest Carrots", kcal: 35, protein: 0.7, carbs: 7.6, fat: 0.2, sat: 0, sugar: 4.7, unit: { grams: 80, label: "portion" } },
+  { name: "Aldi Grower's Harvest Onions", kcal: 40, protein: 1.1, carbs: 7.9, fat: 0.2, sat: 0, sugar: 4.2, unit: { grams: 90, label: "onion" } },
+  { name: "Aldi Fisherman's Choice Salmon Fillets", kcal: 200, protein: 20, carbs: 0, fat: 13, sat: 2.5, sugar: 0, unit: { grams: 125, label: "fillet" } },
+  { name: "Aldi Fisherman's Choice Tuna Chunks in Spring Water", kcal: 109, protein: 25, carbs: 0, fat: 0.8, sat: 0.2, sugar: 0, unit: { grams: 80, label: "half tin, drained" } },
   // ---- National brands (condiments, bread, cereal — the ones people search by name) ----
   { name: "Hellmann's Real Mayonnaise", kcal: 711, protein: 1, carbs: 1, fat: 78, sat: 6.5, sugar: 1, unit: { grams: 15, label: "tbsp" } },
   { name: "Hellmann's Light Mayonnaise", kcal: 288, protein: 1, carbs: 8, fat: 28, sat: 2.2, sugar: 5, unit: { grams: 15, label: "tbsp" } },
@@ -1080,6 +1096,7 @@ export default function App() {
   const readerRef = useRef(null);
   const labelInputRef = useRef(null);
   const trackRef = useRef(null);
+  const offFetchCacheRef = useRef(new Map());
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const cameraSupported =
@@ -1956,14 +1973,40 @@ export default function App() {
     };
   }
 
+  // OFF's search endpoint has turned out to be prone to brief "temporarily
+  // unavailable" spells under any real load — a single failed request looked
+  // identical to "no results" even when the data genuinely existed (confirmed: the
+  // exact same query succeeded moments later). This wraps every OFF call with one
+  // automatic retry after a short pause, and caches successful responses for the
+  // rest of the session so re-searching the same thing twice — or firing several
+  // near-identical requests at once (recipe matching, the shop + generic search
+  // pair) — doesn't hit the network, or the rate limit, again for no reason.
+  // Failures are never cached, so a transient blip doesn't stick around once OFF
+  // recovers.
+  async function fetchOffJson(url) {
+    if (offFetchCacheRef.current.has(url)) return offFetchCacheRef.current.get(url);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          offFetchCacheRef.current.set(url, data);
+          return data;
+        }
+      } catch (e) {
+        // network/CORS error — fall through to the retry below
+      }
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 1200));
+    }
+    return null;
+  }
+
   async function fetchOpenFoodFacts(code) {
     try {
-      const res = await fetch(
+      const data = await fetchOffJson(
         `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=code,product_name,brands,nutriments,serving_quantity,serving_size`
       );
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (data.status !== 1 || !data.product) return null;
+      if (!data || data.status !== 1 || !data.product) return null;
       return normalizeOffProduct(data.product);
     } catch (e) {
       return null; // offline, API down, or blocked — fall back to manual entry
@@ -1994,14 +2037,12 @@ export default function App() {
   // stores contains "aldi" returns 49 real matches, plain "Onions" among them.
   async function searchOpenFoodFactsByStore(query, shop) {
     try {
-      const res = await fetch(
+      const data = await fetchOffJson(
         `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}` +
           `&tagtype_0=stores&tag_contains_0=contains&tag_0=${encodeURIComponent(shop)}` +
           `&search_simple=1&json=1&page_size=10&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,stores`
       );
-      if (!res.ok) return [];
-      const data = await res.json();
-      return dedupeOffResults(data.products || []);
+      return dedupeOffResults((data && data.products) || []);
     } catch (e) {
       return [];
     }
@@ -2025,16 +2066,14 @@ export default function App() {
     try {
       const [shopResults, genericData] = await Promise.all([
         shop ? searchOpenFoodFactsByStore(query, shop) : Promise.resolve([]),
-        fetch(
+        fetchOffJson(
           `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
             query
           )}&search_simple=1&json=1&page_size=20&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,stores`
-        )
-          .then((r) => (r.ok ? r.json() : { products: [] }))
-          .catch(() => ({ products: [] })),
+        ),
       ]);
       const seen = new Set(shopResults.map((p) => p.name.toLowerCase()));
-      const genericResults = dedupeOffResults((genericData.products || []).filter((p) => p));
+      const genericResults = dedupeOffResults(((genericData && genericData.products) || []).filter((p) => p));
       const merged = [...shopResults];
       for (const p of genericResults) {
         if (seen.has(p.name.toLowerCase())) continue;
