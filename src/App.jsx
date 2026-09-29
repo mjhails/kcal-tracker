@@ -4004,7 +4004,6 @@ export default function App() {
                       <div style={styles.searchBox}>
                         <Search size={16} color="var(--muted)" />
                         <input
-                          autoFocus
                           style={styles.searchInput}
                           placeholder="Search foods or recipes…"
                           value={query}
@@ -5955,7 +5954,14 @@ const styles = {
     cursor: "pointer",
     fontSize: 13.5,
     width: "100%",
-    flex: 1,
+    // flexShrink: 0, not flex: 1 — these sit in a column flex list capped at
+    // maxHeight with overflowY: auto (scroll once there's too much to show at
+    // once). flex: 1 (flex-basis: 0%) let the browser squeeze rows shorter than
+    // their wrapped 2-line text needed once total content passed that cap,
+    // instead of just scrolling — the text then visually overlapped the row
+    // below it. flexShrink: 0 keeps every row at its natural content height and
+    // leaves the actual overflow handling to the scroll container, as intended.
+    flexShrink: 0,
     minWidth: 0,
   },
   mineTag: { color: "var(--sage-deep)", fontSize: 11, fontWeight: 600 },
