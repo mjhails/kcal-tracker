@@ -115,6 +115,8 @@ const FOOD_DB = [
   { name: "Potato, baked (with skin)", kcal: 136, protein: 3.9, carbs: 31.7, fat: 0.2, sat: 0, sugar: 1.2, unit: { grams: 180, label: "potato" } },
   { name: "Pasta, plain, boiled", kcal: 131, protein: 4.7, carbs: 25, fat: 1.1, sat: 0.2, sugar: 0.6, unit: { grams: 200, label: "portion" } },
   { name: "Pasta, dried (uncooked)", kcal: 349, protein: 12, carbs: 70.9, fat: 1.6, sat: 0.3, sugar: 2.6, unit: { grams: 75, label: "portion (dry)" } },
+  { name: "Wholemeal pasta, boiled", kcal: 124, protein: 5.3, carbs: 23.2, fat: 0.9, sat: 0.2, sugar: 0.8, unit: { grams: 200, label: "portion" } },
+  { name: "Wholemeal pasta, dried (uncooked)", kcal: 324, protein: 13.4, carbs: 60.1, fat: 2.5, sat: 0.4, sugar: 2.4, unit: { grams: 75, label: "portion (dry)" } },
   { name: "Greek yoghurt, plain", kcal: 133, protein: 5.7, carbs: 4.3, fat: 10.2, sat: 6.5, sugar: 4.3, unit: { grams: 150, label: "pot" } },
   { name: "Peanut butter, smooth", kcal: 623, protein: 25.1, carbs: 13.1, fat: 51.5, sat: 10.1, sugar: 8.7, unit: { grams: 15, label: "tbsp" } },
   { name: "Weetabix", kcal: 362, protein: 12, carbs: 69, fat: 2.7, sat: 0.5, sugar: 4.4, unit: { grams: 19, label: "biscuit" } },
@@ -2041,7 +2043,8 @@ export default function App() {
   // recovers.
   async function fetchOffJson(url) {
     if (offFetchCacheRef.current.has(url)) return offFetchCacheRef.current.get(url);
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const attempts = 3; // bumped from 2 — still regularly seeing back-to-back failures under real use
+    for (let attempt = 0; attempt < attempts; attempt++) {
       try {
         const res = await fetch(url);
         if (res.ok) {
@@ -2052,7 +2055,7 @@ export default function App() {
       } catch (e) {
         // network/CORS error — fall through to the retry below
       }
-      if (attempt === 0) await new Promise((r) => setTimeout(r, 1200));
+      if (attempt < attempts - 1) await new Promise((r) => setTimeout(r, 900 * (attempt + 1)));
     }
     return null;
   }
@@ -2136,7 +2139,28 @@ export default function App() {
         seen.add(p.name.toLowerCase());
         merged.push(p);
       }
-      return merged.slice(0, 8);
+      if (merged.length > 0) return merged.slice(0, 8);
+
+      // OFF's own search has no typo tolerance and appears to AND every word
+      // together — misspelling just one word in a multi-word search ("wholemeel
+      // pasta") returns zero results even though the correctly-spelled word alone
+      // ("pasta") matches thousands of products. Local catalogue search already
+      // survives one bad word via matchRank's per-word fuzzy matching; do the OFF
+      // equivalent by re-searching each word on its own and merging whatever comes
+      // back, so one misspelled word doesn't sink the whole search.
+      const words = query.trim().split(/\s+/).filter((w) => w.length >= 3);
+      if (words.length < 2) return [];
+      const perWordResults = await Promise.all(
+        words.map((w) =>
+          fetchOffJson(
+            `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
+              w
+            )}&search_simple=1&json=1&page_size=10&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,product_quantity,quantity,stores`
+          )
+        )
+      );
+      const fallback = dedupeOffResults(perWordResults.flatMap((d) => (d && d.products) || []).filter((p) => p));
+      return fallback.slice(0, 8);
     } catch (e) {
       return []; // offline, API down, or blocked — local/manual results still work
     }
