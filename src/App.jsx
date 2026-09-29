@@ -1987,13 +1987,30 @@ export default function App() {
     // it; otherwise pull it out of the free-text quantity field ("400 g", "1kg",
     // "6x25g" for a multipack — total, not per-item).
     let packGrams = parseFloat(product.product_quantity) || null;
+    let multiItemGrams = null;
     if (!packGrams && product.quantity) {
       const multi = /(\d+)\s*x\s*([\d.]+)\s*g\b/i.exec(product.quantity);
       const kg = /([\d.]+)\s*kg\b/i.exec(product.quantity);
       const g = /([\d.]+)\s*g\b/i.exec(product.quantity);
-      if (multi) packGrams = parseFloat(multi[1]) * parseFloat(multi[2]);
-      else if (kg) packGrams = parseFloat(kg[1]) * 1000;
+      if (multi) {
+        packGrams = parseFloat(multi[1]) * parseFloat(multi[2]);
+        multiItemGrams = parseFloat(multi[2]); // the per-item weight a "6 x 45g" pack already states
+      } else if (kg) packGrams = parseFloat(kg[1]) * 1000;
       else if (g) packGrams = parseFloat(g[1]);
+    }
+
+    // Lots of multi-item packs (a tray of sausages, a box of eggs) give nutrition
+    // per item and the pack's total weight, but never spell out how much one item
+    // weighs — that only shows up as a count in the product name itself ("20
+    // Cocktail Sausages", "6 Pork Sausages"). Without this, those products always
+    // fell back to a flat 100g default. Prefer a "NxNNg" pack's own per-item
+    // figure; otherwise divide the pack weight by a leading item count from the name.
+    if (!servingGrams && multiItemGrams) {
+      servingGrams = multiItemGrams;
+    } else if (!servingGrams && packGrams) {
+      const countMatch = /^\s*(\d{1,3})\s+[A-Za-z]/.exec(product.product_name || "");
+      const count = countMatch ? parseInt(countMatch[1], 10) : null;
+      if (count && count > 1) servingGrams = packGrams / count;
     }
 
     return {
