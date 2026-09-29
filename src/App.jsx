@@ -329,6 +329,7 @@ const FOOD_DB = [
   { name: "Ribena, diluted", kcal: 22, protein: 0, carbs: 5.4, fat: 0, sat: 0, sugar: 5.3, unit: { grams: 250, label: "glass" } },
   { name: "Cadbury Dairy Milk", kcal: 534, protein: 7.3, carbs: 56.5, fat: 30.7, sat: 18.5, sugar: 56.5, unit: { grams: 45, label: "bar" } },
   { name: "Cadbury Wispa Gold", kcal: 519, protein: 5.2, carbs: 58.8, fat: 27.7, sat: 16.3, sugar: 53.8, unit: { grams: 48, label: "bar" } },
+  { name: "McVitie's Gold Bar", kcal: 519, protein: 4.9, carbs: 65, fat: 26.2, sat: 20.8, sugar: 47.5, unit: { grams: 18, label: "bar" } },
   { name: "Walkers Ready Salted Crisps", kcal: 532, protein: 6.1, carbs: 50.3, fat: 34, sat: 3, sugar: 0.6, unit: { grams: 25, label: "bag" } },
   // ---- National brands: meat & meat-free ----
   { name: "Richmond Thick Pork Sausages", kcal: 264, protein: 10.9, carbs: 12, fat: 20.5, sat: 7.3, sugar: 0.9, unit: { grams: 52, label: "sausage" } },
@@ -844,6 +845,21 @@ function searchByName(query, items, nameOf) {
     .filter((x) => x.rank !== null)
     .sort((a, b) => a.rank - b.rank)
     .map((x) => x.item);
+}
+
+// Re-sorts OFF search results in place by how well each product's name matches
+// the query, using the same matchRank as local search. Unlike searchByName, this
+// never drops anything — OFF sometimes surfaces genuinely useful loosely-related
+// items (a "wholemeal pasta" search returning "integrale" products with no literal
+// word overlap) that a strict filter would wrongly discard; a non-match just sorts
+// after every real match instead of being removed. Stable sort keeps OFF's own
+// order as the tiebreak among equally-ranked (or equally unranked) items.
+function rankOffResults(query, products) {
+  products.sort((a, b) => {
+    const ra = matchRank(query, a.name);
+    const rb = matchRank(query, b.name);
+    return (ra === null ? 999 : ra) - (rb === null ? 999 : rb);
+  });
 }
 
 const DEFAULT_TARGETS = { kcal: 2200, protein: 130, carbs: 250, fat: 75, sat: 22, sugar: 65, salt: 6, water: 2.5, weeklyUnits: 14 };
@@ -2138,13 +2154,26 @@ export default function App() {
       const [shopResults, genericData] = await Promise.all([
         shop ? searchOpenFoodFactsByStore(query, shop) : Promise.resolve([]),
         fetchOffJson(
+          // page_size=40, not 20 — OFF's own ordering isn't relevance-based (looks
+          // popularity-driven), so a real, exact-word match can sit well outside the
+          // top 20 for a common word like "gold" (confirmed: "gold bar" ranks
+          // McVitie's actual Gold bar at position 27 of 153). Cast a wider net here
+          // and let rankOffResults below do the actual relevance sorting.
           `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
             query
-          )}&search_simple=1&json=1&page_size=20&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,product_quantity,quantity,stores`
+          )}&search_simple=1&json=1&page_size=40&fields=code,product_name,brands,nutriments,serving_quantity,serving_size,product_quantity,quantity,stores`
         ),
       ]);
       const seen = new Set(shopResults.map((p) => p.name.toLowerCase()));
       const genericResults = dedupeOffResults(((genericData && genericData.products) || []).filter((p) => p));
+      // OFF's own relevance order is weak for a query like "gold bar" — a search
+      // like this comes back with a dozen loosely "gold"-branded products (Alpen
+      // Gold, Cadbury Wispa Gold, KitKat win gold...) ahead of the one that's
+      // actually named "Gold bar", which then never makes it into the top 8 kept
+      // below. Re-rank each group with the same matchRank used for local search —
+      // an exact phrase/word match sorts first, everything else keeps OFF's order.
+      rankOffResults(query, shopResults);
+      rankOffResults(query, genericResults);
       const merged = [...shopResults];
       for (const p of genericResults) {
         if (seen.has(p.name.toLowerCase())) continue;
@@ -2177,6 +2206,7 @@ export default function App() {
         )
       );
       const fallback = dedupeOffResults(perWordResults.flatMap((d) => (d && d.products) || []).filter((p) => p));
+      rankOffResults(query, fallback);
       return { results: fallback.slice(0, 8), failed: false };
     } catch (e) {
       return { results: [], failed: true }; // offline, API down, or blocked — local/manual results still work
