@@ -328,6 +328,7 @@ const FOOD_DB = [
   { name: "Robinsons Squash, diluted", kcal: 5, protein: 0, carbs: 1.2, fat: 0, sat: 0, sugar: 1.2, unit: { grams: 250, label: "glass" } },
   { name: "Ribena, diluted", kcal: 22, protein: 0, carbs: 5.4, fat: 0, sat: 0, sugar: 5.3, unit: { grams: 250, label: "glass" } },
   { name: "Cadbury Dairy Milk", kcal: 534, protein: 7.3, carbs: 56.5, fat: 30.7, sat: 18.5, sugar: 56.5, unit: { grams: 45, label: "bar" } },
+  { name: "Cadbury Wispa Gold", kcal: 519, protein: 5.2, carbs: 58.8, fat: 27.7, sat: 16.3, sugar: 53.8, unit: { grams: 48, label: "bar" } },
   { name: "Walkers Ready Salted Crisps", kcal: 532, protein: 6.1, carbs: 50.3, fat: 34, sat: 3, sugar: 0.6, unit: { grams: 25, label: "bag" } },
   // ---- National brands: meat & meat-free ----
   { name: "Richmond Thick Pork Sausages", kcal: 264, protein: 10.9, carbs: 12, fat: 20.5, sat: 7.3, sugar: 0.9, unit: { grams: 52, label: "sausage" } },
@@ -1025,6 +1026,7 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [onlineResults, setOnlineResults] = useState([]);
   const [onlineSearchLoading, setOnlineSearchLoading] = useState(false);
+  const [onlineSearchFailed, setOnlineSearchFailed] = useState(false);
   const [picked, setPicked] = useState(null);
   const [grams, setGrams] = useState(100);
   const [customMode, setCustomMode] = useState(false);
@@ -1656,14 +1658,16 @@ export default function App() {
     if (q.length < 3 || customMode || picked || recipe || barcodeMode) {
       setOnlineResults([]);
       setOnlineSearchLoading(false);
+      setOnlineSearchFailed(false);
       return;
     }
     let cancelled = false;
     setOnlineSearchLoading(true);
     const timer = setTimeout(async () => {
-      const found = await searchOpenFoodFactsText(q);
+      const { results, failed } = await searchOpenFoodFactsText(q);
       if (!cancelled) {
-        setOnlineResults(found);
+        setOnlineResults(results);
+        setOnlineSearchFailed(failed);
         setOnlineSearchLoading(false);
       }
     }, 450);
@@ -2120,6 +2124,14 @@ export default function App() {
   // blocks it outright (confirmed: works from a plain server-side fetch, fails with
   // an opaque/blocked response from here) — it's not usable from this app. Stuck with
   // the legacy cgi/search.pl endpoint, which does support CORS.
+  // Returns { results, failed }. `failed` means OFF genuinely couldn't be reached
+  // (after fetchOffJson's own retries) — as opposed to reaching it and it simply
+  // having nothing for this query. That distinction matters: a network hiccup
+  // shouldn't fall back to the noisier per-word search below (a phrase like "gold
+  // bar" that legitimately found "Cadbury — Wispa Gold" a moment ago would get
+  // replaced by irrelevant single-word "gold"/"bar" matches on a request that just
+  // happened to fail), and the caller can tell the user to try again instead of
+  // implying the food simply isn't in the database.
   async function searchOpenFoodFactsText(query) {
     const shop = preferredShop.trim();
     try {
@@ -2139,7 +2151,12 @@ export default function App() {
         seen.add(p.name.toLowerCase());
         merged.push(p);
       }
-      if (merged.length > 0) return merged.slice(0, 8);
+      if (merged.length > 0) return { results: merged.slice(0, 8), failed: false };
+
+      // The generic fetch failing outright (null, after retries) means we never
+      // actually got an answer from OFF — don't treat that the same as a genuine
+      // zero-match phrase search by falling through to the per-word fallback.
+      if (genericData === null) return { results: [], failed: true };
 
       // OFF's own search has no typo tolerance and appears to AND every word
       // together — misspelling just one word in a multi-word search ("wholemeel
@@ -2149,7 +2166,7 @@ export default function App() {
       // equivalent by re-searching each word on its own and merging whatever comes
       // back, so one misspelled word doesn't sink the whole search.
       const words = query.trim().split(/\s+/).filter((w) => w.length >= 3);
-      if (words.length < 2) return [];
+      if (words.length < 2) return { results: [], failed: false };
       const perWordResults = await Promise.all(
         words.map((w) =>
           fetchOffJson(
@@ -2160,9 +2177,9 @@ export default function App() {
         )
       );
       const fallback = dedupeOffResults(perWordResults.flatMap((d) => (d && d.products) || []).filter((p) => p));
-      return fallback.slice(0, 8);
+      return { results: fallback.slice(0, 8), failed: false };
     } catch (e) {
-      return []; // offline, API down, or blocked — local/manual results still work
+      return { results: [], failed: true }; // offline, API down, or blocked — local/manual results still work
     }
   }
 
@@ -4062,9 +4079,14 @@ export default function App() {
                       results.length === 0 &&
                       recipeResults.length === 0 &&
                       comboResults.length === 0 &&
-                      onlineResults.length === 0 && (
+                      onlineResults.length === 0 &&
+                      (onlineSearchFailed ? (
+                        <div style={styles.noResults}>
+                          Couldn't reach the online food search just now — try again in a moment, or add it as a custom food.
+                        </div>
+                      ) : (
                         <div style={styles.noResults}>No match, online or saved. You can add it as a custom food instead.</div>
-                      )}
+                      ))}
                     {query.trim().length > 0 &&
                       query.trim().length < 3 &&
                       results.length === 0 &&
