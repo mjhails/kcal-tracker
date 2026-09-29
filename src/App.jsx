@@ -1880,10 +1880,17 @@ export default function App() {
     resetPickerForNextItem();
   }
 
-  function selectFood(f) {
-    setPicked(f);
-    setWeightUnit(guessWeightUnit(f, meal));
-    const remembered = foodWeights[f.name];
+  // Applies whatever amount was actually used last time this exact food name was
+  // logged — from ANY source (local catalog, barcode scan, or online search, since
+  // they all write to the same foodWeights store keyed by name) — falling back to
+  // the food's own stock unit/serving/pack weight only when nothing's remembered
+  // yet. Shared by selectFood and openCustomFoodFromProduct below: before this,
+  // only picking a food from the local catalog re-applied a remembered amount —
+  // scanning a barcode or picking an online search result always ignored it and
+  // fell back to the product's generic serving size (or 100g), no matter how many
+  // times the same item had already been corrected.
+  function applyRememberedOrDefaultAmount(name, fallbackUnitGrams) {
+    const remembered = foodWeights[name];
     // Older saved entries are a plain number (total grams only); newer ones are
     // an object that also remembers which mode and per-item weight were used.
     const mem = remembered && typeof remembered === "object" ? remembered : remembered ? { grams: remembered } : null;
@@ -1897,19 +1904,25 @@ export default function App() {
       setCount(mem.count != null ? mem.count : Math.round((mem.grams / mem.unitWeight) * 100) / 100);
       setGrams(mem.grams);
     } else if (mem) {
-      if (f.unit) setUnitWeight(f.unit.grams);
+      if (fallbackUnitGrams) setUnitWeight(fallbackUnitGrams);
       setAmountMode("grams");
       setGrams(mem.grams);
-      setCount(f.unit ? Math.round((mem.grams / f.unit.grams) * 100) / 100 : 1);
-    } else if (f.unit) {
-      setUnitWeight(f.unit.grams);
+      setCount(fallbackUnitGrams ? Math.round((mem.grams / fallbackUnitGrams) * 100) / 100 : 1);
+    } else if (fallbackUnitGrams) {
+      setUnitWeight(fallbackUnitGrams);
       setAmountMode("count");
       setCount(1);
-      setGrams(f.unit.grams);
+      setGrams(fallbackUnitGrams);
     } else {
       setAmountMode("grams");
       setGrams(100);
     }
+  }
+
+  function selectFood(f) {
+    setPicked(f);
+    setWeightUnit(guessWeightUnit(f, meal));
+    applyRememberedOrDefaultAmount(f.name, f.unit ? f.unit.grams : null);
   }
 
   // Shared by the barcode lookup and the free-text search below — both APIs return
@@ -2304,20 +2317,10 @@ export default function App() {
     setLabelScanNote("");
     setWeightUnit(meal === "drinks" ? "ml" : "g");
 
-    if (found.servingGrams) {
-      // The product data states a per-item/serving weight (e.g. "80g" for one bar in a
-      // multi-pack) even though it usually doesn't state per-item kcal — default to
-      // logging by quantity at that weight instead of an arbitrary 100g by weight.
-      setAmountMode("count");
-      setCount(1);
-      setUnitWeight(found.servingGrams);
-      setGrams(found.servingGrams);
-    } else {
-      setAmountMode("grams");
-      setGrams(100);
-      setCount(1);
-      setUnitWeight(100);
-    }
+    // Check for a remembered amount from a previous time this exact product was
+    // logged (however it was reached then — catalog, scan, or search) before
+    // falling back to the product's own stated serving weight, then a plain 100g.
+    applyRememberedOrDefaultAmount(found.name, found.servingGrams || null);
 
     setCustomFood({
       name: found.name,
