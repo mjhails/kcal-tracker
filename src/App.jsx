@@ -1118,6 +1118,7 @@ export default function App() {
   const [showMoveTo, setShowMoveTo] = useState(false);
   const [moveToDate, setMoveToDate] = useState("");
   const [moveToMeal, setMoveToMeal] = useState(""); // "" = keep each item's existing meal group
+  const [copyMoveBusy, setCopyMoveBusy] = useState(false);
   const [showSaveSelected, setShowSaveSelected] = useState(false);
   const [showQuickAdds, setShowQuickAdds] = useState(false);
   const [copyToast, setCopyToast] = useState("");
@@ -2855,11 +2856,15 @@ export default function App() {
   // updates immediately; otherwise it's a background read-modify-write against whatever's
   // already logged that day.
   async function copySelectedTo(targetDate) {
-    if (!user || selectedIds.size === 0 || !targetDate) return;
+    if (!user || selectedIds.size === 0 || !targetDate || copyMoveBusy) return;
     const toCopy = entries
       .filter((e) => selectedIds.has(e.id))
       .map((e) => ({ ...e, id: uid(), meal: copyToMeal || e.meal }));
     if (toCopy.length === 0) return;
+    // copyMoveBusy blocks re-entry while the write is in flight — without it, a slow
+    // connection makes the sheet look unresponsive, and tapping the button again (or
+    // several times) fired that many separate copies of the same items.
+    setCopyMoveBusy(true);
     try {
       if (targetDate === date) {
         await saveEntries([...entries, ...toCopy]);
@@ -2875,8 +2880,11 @@ export default function App() {
       setShowCopyTo(false);
       setSelectMode(false);
       setSelectedIds(new Set());
+      setDate(targetDate); // jump to where the copy landed, so the result is visibly confirmed
     } catch (e) {
       console.error("Failed to copy entries", e);
+    } finally {
+      setCopyMoveBusy(false);
     }
   }
 
@@ -2892,11 +2900,12 @@ export default function App() {
   // it. If the target day's write fails partway through, the originals are left in place
   // rather than removed, so a failure can duplicate at worst, never silently lose data.
   async function moveSelectedTo(targetDate) {
-    if (!user || selectedIds.size === 0 || !targetDate) return;
+    if (!user || selectedIds.size === 0 || !targetDate || copyMoveBusy) return;
     const toMove = entries
       .filter((e) => selectedIds.has(e.id))
       .map((e) => ({ ...e, meal: moveToMeal || e.meal }));
     if (toMove.length === 0) return;
+    setCopyMoveBusy(true);
     try {
       if (targetDate === date) {
         // Same day — just update the selected entries in place (covers a same-day meal-group fix).
@@ -2914,8 +2923,11 @@ export default function App() {
       setShowMoveTo(false);
       setSelectMode(false);
       setSelectedIds(new Set());
+      setDate(targetDate); // jump to where the items landed, so the result is visibly confirmed
     } catch (e) {
       console.error("Failed to move entries", e);
+    } finally {
+      setCopyMoveBusy(false);
     }
   }
 
@@ -4706,20 +4718,22 @@ export default function App() {
                 ))}
               </div>
 
-              <button style={styles.secondaryBtn} onClick={() => copySelectedTo(isoDate(new Date()))}>
-                Today
+              <button style={styles.secondaryBtn} disabled={copyMoveBusy} onClick={() => copySelectedTo(isoDate(new Date()))}>
+                {copyMoveBusy ? "Copying…" : "Today"}
               </button>
               <button
                 style={styles.secondaryBtn}
+                disabled={copyMoveBusy}
                 onClick={() => copySelectedTo(isoDate(new Date(Date.now() + 86400000)))}
               >
-                Tomorrow
+                {copyMoveBusy ? "Copying…" : "Tomorrow"}
               </button>
               <button
                 style={styles.secondaryBtn}
+                disabled={copyMoveBusy}
                 onClick={() => copySelectedTo(isoDate(new Date(Date.now() + 2 * 86400000)))}
               >
-                Day after tomorrow
+                {copyMoveBusy ? "Copying…" : "Day after tomorrow"}
               </button>
 
               <div style={styles.orDivider}>
@@ -4736,10 +4750,10 @@ export default function App() {
               />
               <button
                 style={styles.primaryBtn}
-                disabled={!copyToDate}
+                disabled={!copyToDate || copyMoveBusy}
                 onClick={() => copySelectedTo(copyToDate)}
               >
-                Copy to this date
+                {copyMoveBusy ? "Copying…" : "Copy to this date"}
               </button>
             </div>
           </div>
@@ -4780,20 +4794,22 @@ export default function App() {
                 ))}
               </div>
 
-              <button style={styles.secondaryBtn} onClick={() => moveSelectedTo(isoDate(new Date()))}>
-                Today
+              <button style={styles.secondaryBtn} disabled={copyMoveBusy} onClick={() => moveSelectedTo(isoDate(new Date()))}>
+                {copyMoveBusy ? "Moving…" : "Today"}
               </button>
               <button
                 style={styles.secondaryBtn}
+                disabled={copyMoveBusy}
                 onClick={() => moveSelectedTo(isoDate(new Date(Date.now() + 86400000)))}
               >
-                Tomorrow
+                {copyMoveBusy ? "Moving…" : "Tomorrow"}
               </button>
               <button
                 style={styles.secondaryBtn}
+                disabled={copyMoveBusy}
                 onClick={() => moveSelectedTo(isoDate(new Date(Date.now() + 2 * 86400000)))}
               >
-                Day after tomorrow
+                {copyMoveBusy ? "Moving…" : "Day after tomorrow"}
               </button>
 
               <div style={styles.orDivider}>
@@ -4810,10 +4826,10 @@ export default function App() {
               />
               <button
                 style={styles.primaryBtn}
-                disabled={!moveToDate}
+                disabled={!moveToDate || copyMoveBusy}
                 onClick={() => moveSelectedTo(moveToDate)}
               >
-                Move to this date
+                {copyMoveBusy ? "Moving…" : "Move to this date"}
               </button>
             </div>
           </div>
