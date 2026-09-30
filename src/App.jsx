@@ -509,9 +509,31 @@ const FOOD_DB = [
   { name: "Honey", kcal: 288, protein: 0.3, carbs: 76.4, fat: 0, sat: 0, sugar: 76.4, unit: { grams: 15, label: "tbsp" } },
   { name: "Strawberry jam", kcal: 258, protein: 0.6, carbs: 69, fat: 0, sat: 0, sugar: 69, unit: { grams: 15, label: "tbsp" } },
   // ---- Cafe items ----
-  { name: "Latte, medium (semi-skimmed)", kcal: 130, protein: 7.9, carbs: 12.4, fat: 5.8, sat: 3.6, sugar: 12.4, unit: { grams: 340, label: "medium cup" } },
-  { name: "Cappuccino, medium", kcal: 90, protein: 5.4, carbs: 8.5, fat: 3.9, sat: 2.4, sugar: 8.5, unit: { grams: 340, label: "medium cup" } },
-  { name: "Flat white", kcal: 130, protein: 7.5, carbs: 9.5, fat: 6.8, sat: 4.2, sugar: 9.5, unit: { grams: 230, label: "cup" } },
+  // These three previously had their whole-cup totals entered directly into the
+  // per-100g/ml fields (the convention every other entry in this file uses),
+  // then multiplied again by the cup's own grams — e.g. Flat white showed ~300kcal
+  // instead of the ~130kcal it was actually researched at. Fixed by dividing each
+  // figure by (unit.grams / 100) so scaling to the cup size reproduces the real,
+  // correct total instead of inflating it a second time.
+  { name: "Latte, medium (semi-skimmed)", kcal: 38.2, protein: 2.3, carbs: 3.6, fat: 1.7, sat: 1.1, sugar: 3.6, unit: { grams: 340, label: "medium cup" } },
+  { name: "Cappuccino, medium", kcal: 26.5, protein: 1.6, carbs: 2.5, fat: 1.1, sat: 0.7, sugar: 2.5, unit: { grams: 340, label: "medium cup" } },
+  { name: "Flat white", kcal: 56.5, protein: 3.3, carbs: 4.1, fat: 3, sat: 1.8, sugar: 4.1, unit: { grams: 230, label: "cup" } },
+  { name: "Americano, black", kcal: 1.5, protein: 0, carbs: 0.1, fat: 0, sat: 0, sugar: 0, unit: { grams: 200, label: "cup" } },
+  { name: "Mocha, medium (semi-skimmed)", kcal: 55, protein: 2.6, carbs: 7.2, fat: 2.6, sat: 1.6, sugar: 6.9, unit: { grams: 340, label: "medium cup" } },
+  // ---- High-street coffee chains (semi-skimmed, standard size — scale the
+  // amount for a different size or milk, same as any other food) ----
+  { name: "Costa Flat White (semi-skimmed)", kcal: 57.4, protein: 3.4, carbs: 4.2, fat: 3, sat: 1.9, sugar: 4.2, unit: { grams: 230, label: "regular (8oz)" } },
+  { name: "Costa Latte, medio (semi-skimmed)", kcal: 41.2, protein: 2.5, carbs: 3.9, fat: 1.8, sat: 1.1, sugar: 3.9, unit: { grams: 340, label: "medio (12oz)" } },
+  { name: "Costa Cappuccino, medio (semi-skimmed)", kcal: 25.6, protein: 1.5, carbs: 2.4, fat: 1, sat: 0.6, sugar: 2.4, unit: { grams: 340, label: "medio (12oz)" } },
+  { name: "Costa Americano", kcal: 1.5, protein: 0, carbs: 0.1, fat: 0, sat: 0, sugar: 0, unit: { grams: 340, label: "medio (12oz)" } },
+  { name: "Starbucks Flat White (semi-skimmed)", kcal: 66.1, protein: 3.6, carbs: 4.6, fat: 3.4, sat: 2.1, sugar: 4.6, unit: { grams: 227, label: "8oz" } },
+  { name: "Starbucks Latte, grande (semi-skimmed)", kcal: 40.2, protein: 2.6, carbs: 4, fat: 1.7, sat: 1, sugar: 4, unit: { grams: 473, label: "grande (16oz)" } },
+  { name: "Starbucks Cappuccino, grande (semi-skimmed)", kcal: 25.4, protein: 1.7, carbs: 2.2, fat: 1, sat: 0.6, sugar: 2.2, unit: { grams: 473, label: "grande (16oz)" } },
+  { name: "Starbucks Americano, grande", kcal: 2.1, protein: 0, carbs: 0.1, fat: 0, sat: 0, sugar: 0, unit: { grams: 473, label: "grande (16oz)" } },
+  { name: "Caffè Nero Flat White (semi-skimmed)", kcal: 61.7, protein: 3.4, carbs: 4.6, fat: 3.1, sat: 1.9, sugar: 4.6, unit: { grams: 227, label: "regular" } },
+  { name: "Caffè Nero Latte, regular (semi-skimmed)", kcal: 44.1, protein: 2.8, carbs: 4.3, fat: 1.9, sat: 1.2, sugar: 4.3, unit: { grams: 340, label: "regular" } },
+  { name: "Caffè Nero Cappuccino, regular (semi-skimmed)", kcal: 29.4, protein: 1.9, carbs: 2.6, fat: 1.2, sat: 0.7, sugar: 2.6, unit: { grams: 340, label: "regular" } },
+  { name: "Caffè Nero Americano, regular", kcal: 1.5, protein: 0, carbs: 0.1, fat: 0, sat: 0, sugar: 0, unit: { grams: 340, label: "regular" } },
   { name: "Chicken & pesto panini", kcal: 320, protein: 22, carbs: 30, fat: 13, sat: 4, sugar: 2, unit: { grams: 200, label: "panini" } },
   // ---- More fruit ----
   { name: "Raspberries", kcal: 25, protein: 1.4, carbs: 4.6, fat: 0.3, sat: 0, sugar: 4.6, unit: { grams: 80, label: "handful (portion)" } },
