@@ -2810,6 +2810,12 @@ export default function App() {
     if (!newGrams || newGrams <= 0) return;
     const newUnitLabel = editAmountMode === "grams" ? editWeightUnit : "g"; // matches confirmAdd's convention
     saveEntries(entries.map((e) => (e.id === editingEntry.id ? { ...e, grams: newGrams, unitLabel: newUnitLabel } : e)));
+    // sessionAdds ("Added just now") holds its own copy of each entry for that list's
+    // display — without this, amending an item from there via openEditEntry would
+    // correctly update the real log but leave that chip showing the old amount.
+    setSessionAdds((prev) =>
+      prev.map((e) => (e.id === editingEntry.id ? { ...e, grams: newGrams, unitLabel: newUnitLabel } : e))
+    );
     setEditingEntry(null);
   }
 
@@ -3890,9 +3896,9 @@ export default function App() {
                 <div style={styles.sessionList}>
                   {sessionAdds.map((e) => (
                     <div key={e.id} style={styles.sessionChip}>
-                      <span>
+                      <button style={styles.sessionChipEdit} onClick={() => openEditEntry(e)}>
                         {e.name} · {Math.round((e.kcal * e.grams) / 100)} kcal
-                      </span>
+                      </button>
                       <button onClick={() => removeEntry(e.id)} aria-label={`Remove ${e.name}`}>
                         <X size={12} />
                       </button>
@@ -5793,6 +5799,16 @@ const styles = {
     background: "rgba(255,255,255,0.6)",
     borderRadius: 10,
     padding: "8px 10px",
+  },
+  sessionChipEdit: {
+    background: "none",
+    border: "none",
+    color: "inherit",
+    font: "inherit",
+    textAlign: "left",
+    padding: 0,
+    cursor: "pointer",
+    flex: 1,
   },
   saveComboRow: { display: "flex", gap: 8, marginTop: 2 },
   secondaryBtnSmall: {
