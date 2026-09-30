@@ -4700,7 +4700,7 @@ export default function App() {
                 ))}
               </div>
 
-              <button style={styles.secondaryBtn} onClick={() => copySelectedTo(date)}>
+              <button style={styles.secondaryBtn} onClick={() => copySelectedTo(isoDate(new Date()))}>
                 Today
               </button>
               <button
@@ -4774,7 +4774,7 @@ export default function App() {
                 ))}
               </div>
 
-              <button style={styles.secondaryBtn} onClick={() => moveSelectedTo(date)}>
+              <button style={styles.secondaryBtn} onClick={() => moveSelectedTo(isoDate(new Date()))}>
                 Today
               </button>
               <button
