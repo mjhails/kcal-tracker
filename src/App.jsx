@@ -91,6 +91,28 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
+// Named serving-size presets for foods where "how much did you actually have" is rarely
+// a round weight — a splash in tea, a sliced ring of pepper, a glass of wine. Shown as
+// a pick-list instead of the usual quantity/weight toggle (see the `servings` field below).
+const MILK_SERVINGS = [
+  { label: "Splash — 1 cup tea/coffee (30ml)", grams: 30 },
+  { label: "Splash — 1 mug tea/coffee (40ml)", grams: 40 },
+  { label: "For cereal (125ml)", grams: 125 },
+  { label: "Pint (568ml)", grams: 568 },
+];
+const WINE_SERVINGS = [
+  { label: "Small glass (125ml)", grams: 125 },
+  { label: "Standard glass (175ml)", grams: 175 },
+  { label: "Large glass (250ml)", grams: 250 },
+  { label: "Bottle (750ml)", grams: 750 },
+];
+const BEER_SERVINGS = [
+  { label: "Half pint (284ml)", grams: 284 },
+  { label: "Bottle (330ml)", grams: 330 },
+  { label: "Can (440ml)", grams: 440 },
+  { label: "Pint (568ml)", grams: 568 },
+];
+
 // ---------- Local UK-style food reference (CoFID-flavoured, per 100g) ----------
 const FOOD_DB = [
   { name: "Baked beans, in tomato sauce", kcal: 75, protein: 4.8, carbs: 13, fat: 0.4, sat: 0.1, sugar: 5.3, unit: { grams: 200, label: "half tin" } },
@@ -99,7 +121,7 @@ const FOOD_DB = [
   { name: "Chicken breast, grilled", kcal: 165, protein: 31, carbs: 0, fat: 3.6, sat: 1, sugar: 0, unit: { grams: 150, label: "breast fillet" } },
   { name: "Basmati rice, boiled", kcal: 130, protein: 2.7, carbs: 28, fat: 0.3, sat: 0.1, sugar: 0.1, unit: { grams: 180, label: "portion" } },
   { name: "Basmati rice, dried (uncooked)", kcal: 349, protein: 7.9, carbs: 79.1, fat: 1.4, sat: 0.3, sugar: 0.1, unit: { grams: 75, label: "portion (dry)" } },
-  { name: "Semi-skimmed milk", kcal: 47, protein: 3.4, carbs: 4.8, fat: 1.7, sat: 1.1, sugar: 4.8, unit: { grams: 30, label: "splash (cereal/tea)" } },
+  { name: "Semi-skimmed milk", kcal: 47, protein: 3.4, carbs: 4.8, fat: 1.7, sat: 1.1, sugar: 4.8, unit: { grams: 30, label: "splash (cereal/tea)" }, servings: MILK_SERVINGS },
   { name: "Cheddar cheese", kcal: 416, protein: 25.4, carbs: 0.1, fat: 34.9, sat: 21.7, sugar: 0.1, unit: { grams: 30, label: "slice" } },
   { name: "Porridge oats, made with water", kcal: 50, protein: 1.7, carbs: 8.6, fat: 1.1, sat: 0.2, sugar: 0.3, unit: { grams: 200, label: "bowl" } },
   { name: "Porridge oats, dry (uncooked)", kcal: 375, protein: 11.2, carbs: 60.4, fat: 8.7, sat: 1.5, sugar: 1, unit: { grams: 40, label: "portion (dry)" } },
@@ -129,8 +151,18 @@ const FOOD_DB = [
   { name: "Avocado", kcal: 160, protein: 2, carbs: 8.5, fat: 14.7, sat: 2.1, sugar: 0.7, unit: { grams: 150, label: "avocado" } },
   { name: "Spinach, raw", kcal: 23, protein: 2.9, carbs: 1.6, fat: 0.4, sat: 0.1, sugar: 0.4, unit: { grams: 30, label: "handful" } },
   { name: "Cheese & onion crisps", kcal: 519, protein: 6, carbs: 51, fat: 32.6, sat: 3.1, sugar: 3.4, unit: { grams: 25, label: "bag" } },
-  { name: "Apple", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 182, label: "apple" } },
-  { name: "Banana", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" } },
+  { name: "Apple", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 182, label: "apple" }, servings: [
+    { label: "Small apple (100g)", grams: 100 },
+    { label: "Medium apple (182g)", grams: 182 },
+    { label: "Large apple (223g)", grams: 223 },
+    { label: "Sliced, 1 cup (110g)", grams: 110 },
+  ] },
+  { name: "Banana", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" }, servings: [
+    { label: "Small banana (90g)", grams: 90 },
+    { label: "Medium banana (118g)", grams: 118 },
+    { label: "Large banana (140g)", grams: 140 },
+    { label: "Sliced, 1 cup (150g)", grams: 150 },
+  ] },
   // ---- Common meat/poultry cuts and staples not otherwise covered above ----
   { name: "Chicken leg/drumstick, roasted", kcal: 191, protein: 23.4, carbs: 0, fat: 10.2, sat: 2.7, sugar: 0, unit: { grams: 60, label: "drumstick" } },
   { name: "Chicken wing, roasted", kcal: 254, protein: 23.8, carbs: 0, fat: 16.9, sat: 5, sugar: 0, unit: { grams: 30, label: "wing" } },
@@ -154,10 +186,10 @@ const FOOD_DB = [
   { name: "Apple juice", kcal: 46, protein: 0.1, carbs: 11.3, fat: 0.1, sat: 0, sugar: 11, unit: { grams: 200, label: "glass" } },
   { name: "Green tea", kcal: 1, protein: 0, carbs: 0, fat: 0, sat: 0, sugar: 0, unit: { grams: 200, label: "cup" } },
   // Drinks — kcal/units given per single standard serving (grams:100 = 1 serving)
-  { name: "Real ale, pint (~4.2% ABV)", kcal: 32, protein: 0, carbs: 2.5, fat: 0, sat: 0, sugar: 0, units: 0.42, unit: { grams: 568, label: "pint" } },
-  { name: "Lager, pint (~4% ABV)", kcal: 38, protein: 0, carbs: 2.1, fat: 0, sat: 0, sugar: 0, units: 0.41, unit: { grams: 568, label: "pint" } },
+  { name: "Real ale, pint (~4.2% ABV)", kcal: 32, protein: 0, carbs: 2.5, fat: 0, sat: 0, sugar: 0, units: 0.42, unit: { grams: 568, label: "pint" }, servings: BEER_SERVINGS },
+  { name: "Lager, pint (~4% ABV)", kcal: 38, protein: 0, carbs: 2.1, fat: 0, sat: 0, sugar: 0, units: 0.41, unit: { grams: 568, label: "pint" }, servings: BEER_SERVINGS },
   { name: "Cider, pint (~4.5% ABV)", kcal: 38, protein: 0, carbs: 3.9, fat: 0, sat: 0, sugar: 3.7, units: 0.46, unit: { grams: 568, label: "pint" } },
-  { name: "Red or white wine, glass (175ml, 13%)", kcal: 91, protein: 0, carbs: 2.5, fat: 0, sat: 0, sugar: 0.8, units: 1.31, unit: { grams: 175, label: "glass" } },
+  { name: "Red or white wine, glass (175ml, 13%)", kcal: 91, protein: 0, carbs: 2.5, fat: 0, sat: 0, sugar: 0.8, units: 1.31, unit: { grams: 175, label: "glass" }, servings: WINE_SERVINGS },
   { name: "Prosecco, glass (125ml, 12%)", kcal: 71, protein: 0, carbs: 2, fat: 0, sat: 0, sugar: 0.8, units: 1.2, unit: { grams: 125, label: "glass" } },
   { name: "Spirit & mixer, single (25ml spirit + mixer, 40%)", kcal: 54, protein: 0, carbs: 4.6, fat: 0, sat: 0, sugar: 4.6, units: 0.57, unit: { grams: 175, label: "single with mixer" } },
   // Aldi own-brand (typical values — check the pack, exact figures vary by product/pack size)
@@ -174,7 +206,7 @@ const FOOD_DB = [
   { name: "Aldi Chicken & Bacon Meal Deal Sandwich", kcal: 250, protein: 16, carbs: 28, fat: 8, sat: 2, sugar: 3, unit: { grams: 180, label: "pack" } },
   { name: "Aldi High Protein Natural Yogurt", kcal: 65, protein: 10, carbs: 4, fat: 0.3, sat: 0.1, sugar: 4, unit: { grams: 150, label: "pot" } },
   { name: "Aldi Free Range Eggs", kcal: 143, protein: 12.6, carbs: 0.7, fat: 9.9, sat: 3.1, sugar: 0.7, unit: { grams: 50, label: "egg" } },
-  { name: "Aldi Semi-Skimmed Milk", kcal: 47, protein: 3.4, carbs: 4.8, fat: 1.7, sat: 1.1, sugar: 4.8, unit: { grams: 30, label: "splash (cereal/tea)" } },
+  { name: "Aldi Semi-Skimmed Milk", kcal: 47, protein: 3.4, carbs: 4.8, fat: 1.7, sat: 1.1, sugar: 4.8, unit: { grams: 30, label: "splash (cereal/tea)" }, servings: MILK_SERVINGS },
   { name: "Aldi British Chicken Breast Fillets", kcal: 165, protein: 31, carbs: 0, fat: 3.6, sat: 1, sugar: 0, unit: { grams: 150, label: "fillet" } },
   // Aldi own-brand, batch 2 — real sub-brand names confirmed via product listings/reviews.
   // Brooklea, Village Bakery and Ashfields figures are sourced from published pack data; the rest are typical estimates for the product type.
@@ -424,8 +456,8 @@ const FOOD_DB = [
   { name: "Turkey mince, cooked", kcal: 176, protein: 28, carbs: 0, fat: 7, sat: 2, sugar: 0, unit: { grams: 100, label: "portion" } },
   { name: "Beef burger, grilled (100% beef)", kcal: 264, protein: 20, carbs: 0.1, fat: 20, sat: 8.5, sugar: 0, unit: { grams: 113, label: "burger" } },
   // ---- Dairy & eggs ----
-  { name: "Whole milk", kcal: 64, protein: 3.3, carbs: 4.6, fat: 3.6, sat: 2.3, sugar: 4.6, unit: { grams: 30, label: "splash (cereal/tea)" } },
-  { name: "Skimmed milk", kcal: 34, protein: 3.4, carbs: 5, fat: 0.1, sat: 0.1, sugar: 5, unit: { grams: 30, label: "splash (cereal/tea)" } },
+  { name: "Whole milk", kcal: 64, protein: 3.3, carbs: 4.6, fat: 3.6, sat: 2.3, sugar: 4.6, unit: { grams: 30, label: "splash (cereal/tea)" }, servings: MILK_SERVINGS },
+  { name: "Skimmed milk", kcal: 34, protein: 3.4, carbs: 5, fat: 0.1, sat: 0.1, sugar: 5, unit: { grams: 30, label: "splash (cereal/tea)" }, servings: MILK_SERVINGS },
   { name: "Butter", kcal: 717, protein: 0.6, carbs: 0.1, fat: 81, sat: 51, sugar: 0.1, unit: { grams: 10, label: "spread (per slice)" } },
   { name: "Margarine / low-fat spread", kcal: 530, protein: 0.2, carbs: 1, fat: 59, sat: 15, sugar: 1, unit: { grams: 10, label: "spread (per slice)" } },
   { name: "Cream cheese, full fat", kcal: 342, protein: 3.1, carbs: 4.1, fat: 34, sat: 21, sugar: 3.6, unit: { grams: 30, label: "spread (2 tbsp)" } },
@@ -455,15 +487,31 @@ const FOOD_DB = [
   { name: "Pear", kcal: 42, protein: 0.3, carbs: 10.6, fat: 0.1, sat: 0, sugar: 10.6, unit: { grams: 170, label: "pear" } },
   { name: "Mango", kcal: 60, protein: 0.8, carbs: 14.1, fat: 0.2, sat: 0, sugar: 13.7, unit: { grams: 160, label: "portion" } },
   { name: "Pineapple", kcal: 50, protein: 0.5, carbs: 12.3, fat: 0.2, sat: 0, sugar: 12.3, unit: { grams: 80, label: "slice" } },
-  { name: "Carrots, raw", kcal: 41, protein: 0.6, carbs: 9.6, fat: 0.2, sat: 0, sugar: 4.7, unit: { grams: 80, label: "portion" } },
+  { name: "Carrots, raw", kcal: 41, protein: 0.6, carbs: 9.6, fat: 0.2, sat: 0, sugar: 4.7, unit: { grams: 80, label: "portion" }, servings: [
+    { label: "1 medium carrot (60g)", grams: 60 },
+    { label: "Sliced, portion (80g)", grams: 80 },
+    { label: "1 large carrot (100g)", grams: 100 },
+    { label: "100g (edible portion)", grams: 100 },
+  ] },
   { name: "Peas, boiled", kcal: 79, protein: 6.7, carbs: 11.3, fat: 0.9, sat: 0.2, sugar: 2.7, unit: { grams: 80, label: "portion" } },
   { name: "Sweetcorn, boiled", kcal: 96, protein: 3.3, carbs: 19, fat: 1.4, sat: 0.2, sugar: 3.2, unit: { grams: 80, label: "portion" } },
   { name: "Cauliflower, boiled", kcal: 28, protein: 2.9, carbs: 2.1, fat: 0.9, sat: 0.1, sugar: 2, unit: { grams: 80, label: "portion" } },
   { name: "Cucumber", kcal: 10, protein: 0.7, carbs: 1.5, fat: 0.1, sat: 0, sugar: 1.5, unit: { grams: 30, label: "few slices" } },
   { name: "Tomato", kcal: 18, protein: 0.9, carbs: 3.1, fat: 0.2, sat: 0, sugar: 2.6, unit: { grams: 123, label: "tomato" } },
-  { name: "Onion, raw", kcal: 40, protein: 1.2, carbs: 9.3, fat: 0.2, sat: 0, sugar: 4.2, unit: { grams: 75, label: "small onion" } },
+  { name: "Onion, raw", kcal: 40, protein: 1.2, carbs: 9.3, fat: 0.2, sat: 0, sugar: 4.2, unit: { grams: 75, label: "small onion" }, servings: [
+    { label: "Small onion (75g)", grams: 75 },
+    { label: "Medium onion (110g)", grams: 110 },
+    { label: "Large onion (150g)", grams: 150 },
+    { label: "Sliced, handful (30g)", grams: 30 },
+  ] },
   { name: "Mushrooms, raw", kcal: 22, protein: 1.8, carbs: 2.3, fat: 0.5, sat: 0.1, sugar: 1.5, unit: { grams: 80, label: "portion (handful)" } },
-  { name: "Bell pepper", kcal: 33, protein: 1, carbs: 6.6, fat: 0.3, sat: 0, sugar: 5.2, unit: { grams: 120, label: "pepper" } },
+  { name: "Bell pepper", kcal: 33, protein: 1, carbs: 6.6, fat: 0.3, sat: 0, sugar: 5.2, unit: { grams: 120, label: "pepper" }, servings: [
+    { label: "1/2 medium pepper (80g)", grams: 80 },
+    { label: "1 sliced ring (10g)", grams: 10 },
+    { label: "2 sliced rings (20g)", grams: 20 },
+    { label: "100g (edible portion)", grams: 100 },
+    { label: "Medium pepper (160g)", grams: 160 },
+  ] },
   { name: "Sweet potato, baked", kcal: 115, protein: 2, carbs: 27.9, fat: 0.3, sat: 0, sugar: 8.6, unit: { grams: 180, label: "potato" } },
   { name: "Green beans, boiled", kcal: 25, protein: 1.9, carbs: 3.2, fat: 0.5, sat: 0.1, sugar: 3, unit: { grams: 80, label: "portion" } },
   // ---- Legumes & plant protein ----
@@ -1081,6 +1129,9 @@ export default function App() {
   const [weightUnit, setWeightUnit] = useState("g"); // 'g' | 'ml'
   const [count, setCount] = useState(1);
   const [unitWeight, setUnitWeight] = useState(100);
+  // Index into picked.servings for foods with named serving-size presets (e.g. milk's
+  // "1 cup tea/coffee" / "1 mug" / "pint") — null means a custom weight is in use instead.
+  const [selectedServingIndex, setSelectedServingIndex] = useState(null);
   const [otherDaysUnits, setOtherDaysUnits] = useState(0);
   const [otherDaysKcal, setOtherDaysKcal] = useState(0);
   const [combos, setCombos] = useState([]);
@@ -1970,7 +2021,21 @@ export default function App() {
   function selectFood(f) {
     setPicked(f);
     setWeightUnit(guessWeightUnit(f, meal));
-    applyRememberedOrDefaultAmount(f.name, f.unit ? f.unit.grams : null);
+    if (f.servings && f.servings.length > 0) {
+      // Named serving-size presets (milk's "1 cup tea/coffee", a pepper's "half/whole",
+      // a drink's "small/large glass") replace the usual quantity/weight toggle — pick
+      // whichever preset matches a remembered weight, or default to the first one.
+      const remembered = foodWeights[f.name];
+      const rememberedGrams = remembered && typeof remembered === "object" ? remembered.grams : remembered;
+      const targetGrams = rememberedGrams || f.servings[0].grams;
+      setAmountMode("grams");
+      setGrams(targetGrams);
+      const idx = f.servings.findIndex((s) => Math.abs(s.grams - targetGrams) < 0.5);
+      setSelectedServingIndex(idx >= 0 ? idx : null);
+    } else {
+      setSelectedServingIndex(null);
+      applyRememberedOrDefaultAmount(f.name, f.unit ? f.unit.grams : null);
+    }
   }
 
   // Shared by the barcode lookup and the free-text search below — both APIs return
@@ -2634,6 +2699,7 @@ export default function App() {
     setCount(1);
     setUnitWeight(100);
     setGrams(100);
+    setSelectedServingIndex(null);
     setRecipe(null);
     setRecipeSplitPeople(1);
     setRecipeMatches({});
@@ -4187,69 +4253,133 @@ export default function App() {
               <div key="picked" className="fade-in" style={styles.pickedPanel}>
                 <div style={styles.pickedName}>{picked.name}</div>
 
-                <div style={styles.mealChipRow}>
-                  <button
-                    style={{ ...styles.mealChip, ...(amountMode === "count" ? styles.mealChipActive : {}) }}
-                    onClick={() => setAmountMode("count")}
-                  >
-                    By quantity
-                  </button>
-                  <button
-                    style={{ ...styles.mealChip, ...(amountMode === "grams" ? styles.mealChipActive : {}) }}
-                    onClick={() => setAmountMode("grams")}
-                  >
-                    By weight
-                  </button>
-                </div>
-
-                {amountMode === "count" ? (
+                {picked.servings && picked.servings.length > 0 ? (
                   <>
-                    <label style={styles.fieldLabel}>
-                      Number of {picked.unit ? picked.unit.label + (count === 1 ? "" : "s") : "items"}
-                    </label>
-                    <input
-                      type="number"
-                      style={styles.gramsInput}
-                      value={count}
-                      min="0"
-                      step="1"
-                      onChange={(ev) => setCount(ev.target.value)}
-                    />
-                    <label style={styles.fieldLabelSmall}>
-                      Weight per {picked.unit ? picked.unit.label : "item"} (g)
-                    </label>
-                    <input
-                      type="number"
-                      style={styles.textInput}
-                      value={unitWeight}
-                      onChange={(ev) => setUnitWeight(ev.target.value)}
-                    />
+                    <label style={styles.fieldLabel}>Serving size</label>
+                    <div style={styles.servingList}>
+                      {picked.servings.map((s, i) => (
+                        <button
+                          key={s.label}
+                          style={styles.servingRow}
+                          onClick={() => {
+                            setSelectedServingIndex(i);
+                            setAmountMode("grams");
+                            setGrams(s.grams);
+                          }}
+                        >
+                          {selectedServingIndex === i ? (
+                            <CheckCircle2 size={18} color="var(--sage-deep)" style={{ flexShrink: 0 }} />
+                          ) : (
+                            <Circle size={18} color="var(--muted)" style={{ flexShrink: 0 }} />
+                          )}
+                          <span style={styles.servingRowLabel}>{s.label}</span>
+                          <span style={styles.resultKcal}>{Math.round((picked.kcal * s.grams) / 100)} kcal</span>
+                        </button>
+                      ))}
+                      <button style={styles.servingRow} onClick={() => setSelectedServingIndex(null)}>
+                        {selectedServingIndex === null ? (
+                          <CheckCircle2 size={18} color="var(--sage-deep)" style={{ flexShrink: 0 }} />
+                        ) : (
+                          <Circle size={18} color="var(--muted)" style={{ flexShrink: 0 }} />
+                        )}
+                        <span style={styles.servingRowLabel}>Enter specific weight</span>
+                      </button>
+                    </div>
+                    {selectedServingIndex === null && (
+                      <>
+                        <div style={styles.amountLabelRow}>
+                          <label style={styles.fieldLabel}>Amount</label>
+                          <div style={styles.unitToggle}>
+                            <button
+                              style={{ ...styles.unitToggleBtn, ...(weightUnit === "g" ? styles.unitToggleBtnActive : {}) }}
+                              onClick={() => setWeightUnit("g")}
+                            >
+                              g
+                            </button>
+                            <button
+                              style={{ ...styles.unitToggleBtn, ...(weightUnit === "ml" ? styles.unitToggleBtnActive : {}) }}
+                              onClick={() => setWeightUnit("ml")}
+                            >
+                              ml
+                            </button>
+                          </div>
+                        </div>
+                        <input
+                          type="number"
+                          style={styles.gramsInput}
+                          value={grams}
+                          onChange={(ev) => setGrams(ev.target.value)}
+                        />
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
-                    <div style={styles.amountLabelRow}>
-                      <label style={styles.fieldLabel}>Amount</label>
-                      <div style={styles.unitToggle}>
-                        <button
-                          style={{ ...styles.unitToggleBtn, ...(weightUnit === "g" ? styles.unitToggleBtnActive : {}) }}
-                          onClick={() => setWeightUnit("g")}
-                        >
-                          g
-                        </button>
-                        <button
-                          style={{ ...styles.unitToggleBtn, ...(weightUnit === "ml" ? styles.unitToggleBtnActive : {}) }}
-                          onClick={() => setWeightUnit("ml")}
-                        >
-                          ml
-                        </button>
-                      </div>
+                    <div style={styles.mealChipRow}>
+                      <button
+                        style={{ ...styles.mealChip, ...(amountMode === "count" ? styles.mealChipActive : {}) }}
+                        onClick={() => setAmountMode("count")}
+                      >
+                        By quantity
+                      </button>
+                      <button
+                        style={{ ...styles.mealChip, ...(amountMode === "grams" ? styles.mealChipActive : {}) }}
+                        onClick={() => setAmountMode("grams")}
+                      >
+                        By weight
+                      </button>
                     </div>
-                    <input
-                      type="number"
-                      style={styles.gramsInput}
-                      value={grams}
-                      onChange={(ev) => setGrams(ev.target.value)}
-                    />
+
+                    {amountMode === "count" ? (
+                      <>
+                        <label style={styles.fieldLabel}>
+                          Number of {picked.unit ? picked.unit.label + (count === 1 ? "" : "s") : "items"}
+                        </label>
+                        <input
+                          type="number"
+                          style={styles.gramsInput}
+                          value={count}
+                          min="0"
+                          step="1"
+                          onChange={(ev) => setCount(ev.target.value)}
+                        />
+                        <label style={styles.fieldLabelSmall}>
+                          Weight per {picked.unit ? picked.unit.label : "item"} (g)
+                        </label>
+                        <input
+                          type="number"
+                          style={styles.textInput}
+                          value={unitWeight}
+                          onChange={(ev) => setUnitWeight(ev.target.value)}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <div style={styles.amountLabelRow}>
+                          <label style={styles.fieldLabel}>Amount</label>
+                          <div style={styles.unitToggle}>
+                            <button
+                              style={{ ...styles.unitToggleBtn, ...(weightUnit === "g" ? styles.unitToggleBtnActive : {}) }}
+                              onClick={() => setWeightUnit("g")}
+                            >
+                              g
+                            </button>
+                            <button
+                              style={{ ...styles.unitToggleBtn, ...(weightUnit === "ml" ? styles.unitToggleBtnActive : {}) }}
+                              onClick={() => setWeightUnit("ml")}
+                            >
+                              ml
+                            </button>
+                          </div>
+                        </div>
+                        <input
+                          type="number"
+                          style={styles.gramsInput}
+                          value={grams}
+                          onChange={(ev) => setGrams(ev.target.value)}
+                        />
+                      </>
+                    )}
                   </>
                 )}
 
@@ -6109,6 +6239,20 @@ const styles = {
   },
   pickedPanel: { display: "flex", flexDirection: "column", gap: 4 },
   pickedName: { fontSize: 15, marginBottom: 8 },
+  servingList: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 4 },
+  servingRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    background: "var(--bg-card)",
+    border: "none",
+    borderRadius: 10,
+    padding: "10px 12px",
+    cursor: "pointer",
+    width: "100%",
+    textAlign: "left",
+  },
+  servingRowLabel: { flex: 1, fontSize: 13.5, color: "var(--paper)" },
   fieldLabel: { fontSize: 12, color: "var(--muted)", marginTop: 8, marginBottom: 6, display: "block" },
   amountLabelRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, marginBottom: 6 },
   unitToggle: { display: "flex", gap: 4, background: "var(--bg)", borderRadius: 999, padding: 3 },
