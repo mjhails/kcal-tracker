@@ -112,6 +112,52 @@ const BEER_SERVINGS = [
   { label: "Can (440ml)", grams: 440 },
   { label: "Pint (568ml)", grams: 568 },
 ];
+const APPLE_SERVINGS = [
+  { label: "Small apple (100g)", grams: 100 },
+  { label: "Medium apple (182g)", grams: 182 },
+  { label: "Large apple (223g)", grams: 223 },
+  { label: "Sliced, 1 cup (110g)", grams: 110 },
+];
+const BANANA_SERVINGS = [
+  { label: "Small banana (90g)", grams: 90 },
+  { label: "Medium banana (118g)", grams: 118 },
+  { label: "Large banana (140g)", grams: 140 },
+  { label: "Sliced, 1 cup (150g)", grams: 150 },
+];
+const PEAR_SERVINGS = [
+  { label: "Small pear (140g)", grams: 140 },
+  { label: "Medium pear (170g)", grams: 170 },
+  { label: "Large pear (200g)", grams: 200 },
+];
+const CARROT_SERVINGS = [
+  { label: "1 medium carrot (60g)", grams: 60 },
+  { label: "Sliced, portion (80g)", grams: 80 },
+  { label: "1 large carrot (100g)", grams: 100 },
+  { label: "100g (edible portion)", grams: 100 },
+];
+const ONION_SERVINGS = [
+  { label: "Small onion (75g)", grams: 75 },
+  { label: "Medium onion (110g)", grams: 110 },
+  { label: "Large onion (150g)", grams: 150 },
+  { label: "Sliced, handful (30g)", grams: 30 },
+];
+const BERRY_SERVINGS = [
+  { label: "Handful, portion (80g)", grams: 80 },
+  { label: "Small punnet (150g)", grams: 150 },
+  { label: "1 tbsp (15g)", grams: 15 },
+  { label: "100g (edible portion)", grams: 100 },
+];
+const LEAFY_GREENS_SERVINGS = [
+  { label: "Handful (30g)", grams: 30 },
+  { label: "Portion, cooked (80g)", grams: 80 },
+  { label: "100g (edible portion)", grams: 100 },
+];
+const STANDARD_VEG_PORTION_SERVINGS = [
+  { label: "Portion (80g)", grams: 80 },
+  { label: "Small portion (50g)", grams: 50 },
+  { label: "Large portion (120g)", grams: 120 },
+  { label: "100g (edible portion)", grams: 100 },
+];
 
 // ---------- Local UK-style food reference (CoFID-flavoured, per 100g) ----------
 const FOOD_DB = [
@@ -133,8 +179,12 @@ const FOOD_DB = [
   { name: "Egg, scrambled (with butter)", kcal: 190, protein: 11.2, carbs: 0.6, fat: 16.5, sat: 7, sugar: 0.6, unit: { grams: 120, label: "portion (2 eggs)" } },
   { name: "Egg, scrambled (with milk & butter)", kcal: 168, protein: 10.9, carbs: 1.1, fat: 13.3, sat: 5.4, sugar: 1, unit: { grams: 120, label: "portion (2 eggs)" } },
   { name: "Salmon fillet, baked", kcal: 197, protein: 24, carbs: 0, fat: 11, sat: 2.1, sugar: 0, unit: { grams: 130, label: "fillet" } },
-  { name: "Broccoli, boiled", kcal: 24, protein: 2.4, carbs: 1.1, fat: 0.5, sat: 0.1, sugar: 0.9, unit: { grams: 80, label: "portion" } },
-  { name: "Potato, baked (with skin)", kcal: 136, protein: 3.9, carbs: 31.7, fat: 0.2, sat: 0, sugar: 1.2, unit: { grams: 180, label: "potato" } },
+  { name: "Broccoli, boiled", kcal: 24, protein: 2.4, carbs: 1.1, fat: 0.5, sat: 0.1, sugar: 0.9, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Potato, baked (with skin)", kcal: 136, protein: 3.9, carbs: 31.7, fat: 0.2, sat: 0, sugar: 1.2, unit: { grams: 180, label: "potato" }, servings: [
+    { label: "Small potato (120g)", grams: 120 },
+    { label: "Medium potato (180g)", grams: 180 },
+    { label: "Large potato (250g)", grams: 250 },
+  ] },
   { name: "Pasta, plain, boiled", kcal: 131, protein: 4.7, carbs: 25, fat: 1.1, sat: 0.2, sugar: 0.6, unit: { grams: 200, label: "portion" } },
   { name: "Pasta, dried (uncooked)", kcal: 349, protein: 12, carbs: 70.9, fat: 1.6, sat: 0.3, sugar: 2.6, unit: { grams: 75, label: "portion (dry)" } },
   { name: "Wholemeal pasta, boiled", kcal: 124, protein: 5.3, carbs: 23.2, fat: 0.9, sat: 0.2, sugar: 0.8, unit: { grams: 200, label: "portion" } },
@@ -148,8 +198,12 @@ const FOOD_DB = [
   { name: "Digestive biscuit", kcal: 471, protein: 6.3, carbs: 66.5, fat: 20.9, sat: 9, sugar: 16.3, unit: { grams: 15, label: "biscuit" } },
   { name: "Bacon rasher, grilled", kcal: 287, protein: 24.9, carbs: 0, fat: 21.2, sat: 7.2, sugar: 0, unit: { grams: 23, label: "rasher" } },
   { name: "Baked bean stew with sausages", kcal: 128, protein: 6.9, carbs: 12, fat: 6, sat: 2, sugar: 3.6, unit: { grams: 350, label: "portion" } },
-  { name: "Avocado", kcal: 160, protein: 2, carbs: 8.5, fat: 14.7, sat: 2.1, sugar: 0.7, unit: { grams: 150, label: "avocado" } },
-  { name: "Spinach, raw", kcal: 23, protein: 2.9, carbs: 1.6, fat: 0.4, sat: 0.1, sugar: 0.4, unit: { grams: 30, label: "handful" } },
+  { name: "Avocado", kcal: 160, protein: 2, carbs: 8.5, fat: 14.7, sat: 2.1, sugar: 0.7, unit: { grams: 150, label: "avocado" }, servings: [
+    { label: "1/4 avocado (38g)", grams: 38 },
+    { label: "1/2 avocado (75g)", grams: 75 },
+    { label: "Whole avocado (150g)", grams: 150 },
+  ] },
+  { name: "Spinach, raw", kcal: 23, protein: 2.9, carbs: 1.6, fat: 0.4, sat: 0.1, sugar: 0.4, unit: { grams: 30, label: "handful" }, servings: LEAFY_GREENS_SERVINGS },
   { name: "Cheese & onion crisps", kcal: 519, protein: 6, carbs: 51, fat: 32.6, sat: 3.1, sugar: 3.4, unit: { grams: 25, label: "bag" } },
   { name: "Apple", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 182, label: "apple" }, servings: [
     { label: "Small apple (100g)", grams: 100 },
@@ -288,9 +342,9 @@ const FOOD_DB = [
   { name: "Sparkling water", kcal: 0, protein: 0, carbs: 0, fat: 0, sat: 0, sugar: 0, unit: { grams: 250, label: "glass" } },
   { name: "Smoothie, fruit", kcal: 48, protein: 0.6, carbs: 11, fat: 0.2, sat: 0, sugar: 10.5, unit: { grams: 250, label: "glass" } },
   // ---- More veg ----
-  { name: "Pak choi, steamed", kcal: 13, protein: 1.5, carbs: 1.2, fat: 0.2, sat: 0, sugar: 1, unit: { grams: 80, label: "portion" } },
-  { name: "Chard, boiled", kcal: 20, protein: 1.8, carbs: 2.1, fat: 0.2, sat: 0, sugar: 1.1, unit: { grams: 80, label: "portion" } },
-  { name: "Turnip, boiled", kcal: 12, protein: 0.6, carbs: 2, fat: 0.2, sat: 0, sugar: 2, unit: { grams: 80, label: "portion" } },
+  { name: "Pak choi, steamed", kcal: 13, protein: 1.5, carbs: 1.2, fat: 0.2, sat: 0, sugar: 1, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Chard, boiled", kcal: 20, protein: 1.8, carbs: 2.1, fat: 0.2, sat: 0, sugar: 1.1, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Turnip, boiled", kcal: 12, protein: 0.6, carbs: 2, fat: 0.2, sat: 0, sugar: 2, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
   // ---- More grains ----
   { name: "Long grain white rice, dried (uncooked)", kcal: 353, protein: 6.5, carbs: 79, fat: 0.6, sat: 0.1, sugar: 0.1, unit: { grams: 75, label: "portion (dry)" } },
   { name: "Long grain white rice, boiled", kcal: 138, protein: 2.6, carbs: 30.9, fat: 0.3, sat: 0.1, sugar: 0.1, unit: { grams: 180, label: "portion" } },
@@ -320,8 +374,8 @@ const FOOD_DB = [
   { name: "Aldi Four Seasons Fish Fingers", kcal: 220, protein: 12.6, carbs: 18, fat: 11, sat: 1.5, sugar: 1, unit: { grams: 28, label: "finger" } },
   { name: "Aldi Carlos Nacho Chips", kcal: 480, protein: 7, carbs: 65, fat: 21, sat: 3, sugar: 2, unit: { grams: 30, label: "handful" } },
   { name: "Aldi Carlos Salsa Dip", kcal: 45, protein: 1, carbs: 9, fat: 0.3, sat: 0, sugar: 7, unit: { grams: 30, label: "2 tbsp" } },
-  { name: "Aldi Farm Select Bananas", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" } },
-  { name: "Aldi Farm Select Braeburn Apples", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 182, label: "apple" } },
+  { name: "Aldi Farm Select Bananas", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" }, servings: BANANA_SERVINGS },
+  { name: "Aldi Farm Select Braeburn Apples", kcal: 47, protein: 0.4, carbs: 11.8, fat: 0.1, sat: 0, sugar: 11.8, unit: { grams: 182, label: "apple" }, servings: APPLE_SERVINGS },
   { name: "Aldi Crestwood High Protein Pasta", kcal: 335, protein: 25, carbs: 45, fat: 3, sat: 0.5, sugar: 2, unit: { grams: 75, label: "portion (dry)" } },
   // ---- Aldi staples for family cooking (mince, veg, pasta/rice, tinned) — the ones
   // that came up empty on OpenFoodFacts because they're loose/unbranded or the
@@ -334,9 +388,13 @@ const FOOD_DB = [
   { name: "Aldi Fusilli Pasta, dried (uncooked)", kcal: 349, protein: 12, carbs: 71, fat: 1.6, sat: 0.3, sugar: 2.6, unit: { grams: 75, label: "portion (dry)" } },
   { name: "Aldi Basmati Rice, dried (uncooked)", kcal: 349, protein: 7.9, carbs: 79.1, fat: 1.4, sat: 0.3, sugar: 0.1, unit: { grams: 75, label: "portion (dry)" } },
   { name: "Aldi Four Seasons Chopped Tomatoes", kcal: 32, protein: 1.2, carbs: 5.8, fat: 0.2, sat: 0, sugar: 5, unit: { grams: 400, label: "tin" } },
-  { name: "Aldi Grower's Harvest Baby Potatoes", kcal: 76, protein: 1.8, carbs: 17, fat: 0.2, sat: 0, sugar: 0.8, unit: { grams: 180, label: "portion" } },
-  { name: "Aldi Grower's Harvest Carrots", kcal: 35, protein: 0.7, carbs: 7.6, fat: 0.2, sat: 0, sugar: 4.7, unit: { grams: 80, label: "portion" } },
-  { name: "Aldi Grower's Harvest Onions", kcal: 40, protein: 1.1, carbs: 7.9, fat: 0.2, sat: 0, sugar: 4.2, unit: { grams: 90, label: "onion" } },
+  { name: "Aldi Grower's Harvest Baby Potatoes", kcal: 76, protein: 1.8, carbs: 17, fat: 0.2, sat: 0, sugar: 0.8, unit: { grams: 180, label: "portion" }, servings: [
+    { label: "Portion, 5-6 potatoes (180g)", grams: 180 },
+    { label: "Small portion (100g)", grams: 100 },
+    { label: "100g (edible portion)", grams: 100 },
+  ] },
+  { name: "Aldi Grower's Harvest Carrots", kcal: 35, protein: 0.7, carbs: 7.6, fat: 0.2, sat: 0, sugar: 4.7, unit: { grams: 80, label: "portion" }, servings: CARROT_SERVINGS },
+  { name: "Aldi Grower's Harvest Onions", kcal: 40, protein: 1.1, carbs: 7.9, fat: 0.2, sat: 0, sugar: 4.2, unit: { grams: 90, label: "onion" }, servings: ONION_SERVINGS },
   { name: "Aldi Fisherman's Choice Salmon Fillets", kcal: 200, protein: 20, carbs: 0, fat: 13, sat: 2.5, sugar: 0, unit: { grams: 125, label: "fillet" } },
   { name: "Aldi Fisherman's Choice Tuna Chunks in Spring Water", kcal: 109, protein: 25, carbs: 0, fat: 0.8, sat: 0.2, sugar: 0, unit: { grams: 100, label: "tin, drained" } },
   // ---- National brands (condiments, bread, cereal — the ones people search by name) ----
@@ -374,9 +432,9 @@ const FOOD_DB = [
   { name: "Linda McCartney Vegetarian Sausages", kcal: 189, protein: 15, carbs: 13, fat: 8.5, sat: 1, sugar: 1.5, unit: { grams: 42, label: "sausage" } },
   { name: "Linda McCartney Vegetarian Mince", kcal: 105, protein: 13, carbs: 6, fat: 3.2, sat: 0.4, sugar: 1, unit: { grams: 100, label: "portion" } },
   // ---- Fruit: named varieties (how people actually search fresh produce) + real brands ----
-  { name: "Pink Lady Apple", kcal: 52, protein: 0.3, carbs: 12.8, fat: 0.2, sat: 0, sugar: 12.4, unit: { grams: 182, label: "apple" } },
-  { name: "Gala Apple", kcal: 48, protein: 0.3, carbs: 11.6, fat: 0.1, sat: 0, sugar: 11.4, unit: { grams: 182, label: "apple" } },
-  { name: "Granny Smith Apple", kcal: 44, protein: 0.3, carbs: 10.5, fat: 0.2, sat: 0, sugar: 9.8, unit: { grams: 182, label: "apple" } },
+  { name: "Pink Lady Apple", kcal: 52, protein: 0.3, carbs: 12.8, fat: 0.2, sat: 0, sugar: 12.4, unit: { grams: 182, label: "apple" }, servings: APPLE_SERVINGS },
+  { name: "Gala Apple", kcal: 48, protein: 0.3, carbs: 11.6, fat: 0.1, sat: 0, sugar: 11.4, unit: { grams: 182, label: "apple" }, servings: APPLE_SERVINGS },
+  { name: "Granny Smith Apple", kcal: 44, protein: 0.3, carbs: 10.5, fat: 0.2, sat: 0, sugar: 9.8, unit: { grams: 182, label: "apple" }, servings: APPLE_SERVINGS },
   // ---- More: plant milks, protein bars, meat cuts, veg, sandwich fillings, world food ----
   { name: "Oatly Oat Milk (Original)", kcal: 47, protein: 1, carbs: 6.7, fat: 1.5, sat: 0.2, sugar: 4.1, unit: { grams: 30, label: "splash (cereal/tea)" } },
   { name: "Alpro Almond Milk (Unsweetened)", kcal: 13, protein: 0.4, carbs: 0.3, fat: 1.1, sat: 0.1, sugar: 0.1, unit: { grams: 30, label: "splash (cereal/tea)" } },
@@ -388,8 +446,8 @@ const FOOD_DB = [
   { name: "Lamb chops, grilled", kcal: 226, protein: 27, carbs: 0, fat: 13, sat: 5.8, sugar: 0, unit: { grams: 80, label: "chop" } },
   { name: "Beef mince, 20% fat, cooked", kcal: 250, protein: 24, carbs: 0, fat: 17, sat: 7.3, sugar: 0, unit: { grams: 100, label: "portion" } },
   { name: "Pain au chocolat", kcal: 414, protein: 7.5, carbs: 41, fat: 24, sat: 14, sugar: 12, unit: { grams: 70, label: "pastry" } },
-  { name: "Mushrooms, fried in butter", kcal: 157, protein: 2.4, carbs: 0.4, fat: 16.2, sat: 8, sugar: 0.4, unit: { grams: 80, label: "portion" } },
-  { name: "Cauliflower rice, cooked", kcal: 25, protein: 2, carbs: 3, fat: 0.6, sat: 0.1, sugar: 2.4, unit: { grams: 80, label: "portion" } },
+  { name: "Mushrooms, fried in butter", kcal: 157, protein: 2.4, carbs: 0.4, fat: 16.2, sat: 8, sugar: 0.4, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Cauliflower rice, cooked", kcal: 25, protein: 2, carbs: 3, fat: 0.6, sat: 0.1, sugar: 2.4, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
   { name: "Butternut squash soup", kcal: 48, protein: 1, carbs: 8, fat: 1.3, sat: 0.2, sugar: 4, unit: { grams: 300, label: "bowl" } },
   { name: "Tuna mayo (sandwich filling)", kcal: 190, protein: 17, carbs: 1, fat: 13, sat: 1.8, sugar: 1, unit: { grams: 60, label: "sandwich portion" } },
   { name: "Egg mayo (sandwich filling)", kcal: 240, protein: 9, carbs: 1, fat: 22, sat: 3.5, sugar: 1, unit: { grams: 60, label: "sandwich portion" } },
@@ -406,8 +464,8 @@ const FOOD_DB = [
   { name: "Garlic naan bread", kcal: 310, protein: 8.5, carbs: 47, fat: 10, sat: 3.8, sugar: 4, unit: { grams: 140, label: "naan" } },
   { name: "Chicken shish kebab (grilled, no bread)", kcal: 172, protein: 25, carbs: 2, fat: 7, sat: 1.8, sugar: 1, unit: { grams: 150, label: "skewer" } },
   { name: "Tzatziki", kcal: 85, protein: 3.8, carbs: 3.5, fat: 6.5, sat: 4, sugar: 3.3, unit: { grams: 30, label: "2 tbsp" } },
-  { name: "Conference Pear", kcal: 42, protein: 0.3, carbs: 10.6, fat: 0.1, sat: 0, sugar: 10.6, unit: { grams: 170, label: "pear" } },
-  { name: "Chiquita Banana", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" } },
+  { name: "Conference Pear", kcal: 42, protein: 0.3, carbs: 10.6, fat: 0.1, sat: 0, sugar: 10.6, unit: { grams: 170, label: "pear" }, servings: PEAR_SERVINGS },
+  { name: "Chiquita Banana", kcal: 95, protein: 1.2, carbs: 23.2, fat: 0.3, sat: 0.1, sugar: 21, unit: { grams: 118, label: "banana" }, servings: BANANA_SERVINGS },
   { name: "Del Monte Pineapple Chunks in Juice", kcal: 55, protein: 0.5, carbs: 13.5, fat: 0.1, sat: 0, sugar: 13, unit: { grams: 100, label: "half tin (drained)" } },
   { name: "Del Monte Peach Slices in Juice", kcal: 48, protein: 0.5, carbs: 11.5, fat: 0.1, sat: 0, sugar: 11, unit: { grams: 100, label: "half tin (drained)" } },
   { name: "Innocent Smoothie", kcal: 48, protein: 0.6, carbs: 10.8, fat: 0.2, sat: 0, sugar: 10.5, unit: { grams: 250, label: "glass" } },
@@ -480,31 +538,64 @@ const FOOD_DB = [
   { name: "Cornflakes", kcal: 378, protein: 7, carbs: 84, fat: 0.9, sat: 0.2, sugar: 8, unit: { grams: 30, label: "bowl" } },
   { name: "Muesli, no added sugar", kcal: 355, protein: 10, carbs: 62, fat: 7, sat: 1.2, sugar: 20, unit: { grams: 50, label: "bowl" } },
   // ---- Fruit & veg ----
-  { name: "Orange", kcal: 47, protein: 1.1, carbs: 8.5, fat: 0.1, sat: 0, sugar: 8.5, unit: { grams: 160, label: "orange" } },
-  { name: "Strawberries", kcal: 33, protein: 0.8, carbs: 6.2, fat: 0.1, sat: 0, sugar: 6.2, unit: { grams: 80, label: "handful (portion)" } },
-  { name: "Blueberries", kcal: 57, protein: 0.7, carbs: 12.3, fat: 0.3, sat: 0, sugar: 10, unit: { grams: 80, label: "handful (portion)" } },
-  { name: "Grapes", kcal: 69, protein: 0.6, carbs: 16.1, fat: 0.2, sat: 0, sugar: 16.1, unit: { grams: 80, label: "handful (portion)" } },
-  { name: "Pear", kcal: 42, protein: 0.3, carbs: 10.6, fat: 0.1, sat: 0, sugar: 10.6, unit: { grams: 170, label: "pear" } },
-  { name: "Mango", kcal: 60, protein: 0.8, carbs: 14.1, fat: 0.2, sat: 0, sugar: 13.7, unit: { grams: 160, label: "portion" } },
-  { name: "Pineapple", kcal: 50, protein: 0.5, carbs: 12.3, fat: 0.2, sat: 0, sugar: 12.3, unit: { grams: 80, label: "slice" } },
+  { name: "Orange", kcal: 47, protein: 1.1, carbs: 8.5, fat: 0.1, sat: 0, sugar: 8.5, unit: { grams: 160, label: "orange" }, servings: [
+    { label: "Small orange (131g)", grams: 131 },
+    { label: "Medium orange (160g)", grams: 160 },
+    { label: "Large orange (184g)", grams: 184 },
+    { label: "Segments, 1 cup (165g)", grams: 165 },
+  ] },
+  { name: "Strawberries", kcal: 33, protein: 0.8, carbs: 6.2, fat: 0.1, sat: 0, sugar: 6.2, unit: { grams: 80, label: "handful (portion)" }, servings: [
+    { label: "1 strawberry (12g)", grams: 12 },
+    { label: "5 strawberries (60g)", grams: 60 },
+    { label: "Handful, portion (80g)", grams: 80 },
+    { label: "100g (edible portion)", grams: 100 },
+  ] },
+  { name: "Blueberries", kcal: 57, protein: 0.7, carbs: 12.3, fat: 0.3, sat: 0, sugar: 10, unit: { grams: 80, label: "handful (portion)" }, servings: BERRY_SERVINGS },
+  { name: "Grapes", kcal: 69, protein: 0.6, carbs: 16.1, fat: 0.2, sat: 0, sugar: 16.1, unit: { grams: 80, label: "handful (portion)" }, servings: [
+    { label: "10 grapes (50g)", grams: 50 },
+    { label: "Handful, portion (80g)", grams: 80 },
+    { label: "Small bunch (100g)", grams: 100 },
+    { label: "100g (edible portion)", grams: 100 },
+  ] },
+  { name: "Pear", kcal: 42, protein: 0.3, carbs: 10.6, fat: 0.1, sat: 0, sugar: 10.6, unit: { grams: 170, label: "pear" }, servings: PEAR_SERVINGS },
+  { name: "Mango", kcal: 60, protein: 0.8, carbs: 14.1, fat: 0.2, sat: 0, sugar: 13.7, unit: { grams: 160, label: "portion" }, servings: [
+    { label: "Sliced, portion (80g)", grams: 80 },
+    { label: "1/2 mango (160g)", grams: 160 },
+    { label: "Whole mango (320g)", grams: 320 },
+  ] },
+  { name: "Pineapple", kcal: 50, protein: 0.5, carbs: 12.3, fat: 0.2, sat: 0, sugar: 12.3, unit: { grams: 80, label: "slice" }, servings: [
+    { label: "1 slice (80g)", grams: 80 },
+    { label: "Chunks, 1 cup (150g)", grams: 150 },
+    { label: "100g (edible portion)", grams: 100 },
+  ] },
   { name: "Carrots, raw", kcal: 41, protein: 0.6, carbs: 9.6, fat: 0.2, sat: 0, sugar: 4.7, unit: { grams: 80, label: "portion" }, servings: [
     { label: "1 medium carrot (60g)", grams: 60 },
     { label: "Sliced, portion (80g)", grams: 80 },
     { label: "1 large carrot (100g)", grams: 100 },
     { label: "100g (edible portion)", grams: 100 },
   ] },
-  { name: "Peas, boiled", kcal: 79, protein: 6.7, carbs: 11.3, fat: 0.9, sat: 0.2, sugar: 2.7, unit: { grams: 80, label: "portion" } },
-  { name: "Sweetcorn, boiled", kcal: 96, protein: 3.3, carbs: 19, fat: 1.4, sat: 0.2, sugar: 3.2, unit: { grams: 80, label: "portion" } },
-  { name: "Cauliflower, boiled", kcal: 28, protein: 2.9, carbs: 2.1, fat: 0.9, sat: 0.1, sugar: 2, unit: { grams: 80, label: "portion" } },
-  { name: "Cucumber", kcal: 10, protein: 0.7, carbs: 1.5, fat: 0.1, sat: 0, sugar: 1.5, unit: { grams: 30, label: "few slices" } },
-  { name: "Tomato", kcal: 18, protein: 0.9, carbs: 3.1, fat: 0.2, sat: 0, sugar: 2.6, unit: { grams: 123, label: "tomato" } },
+  { name: "Peas, boiled", kcal: 79, protein: 6.7, carbs: 11.3, fat: 0.9, sat: 0.2, sugar: 2.7, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Sweetcorn, boiled", kcal: 96, protein: 3.3, carbs: 19, fat: 1.4, sat: 0.2, sugar: 3.2, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Cauliflower, boiled", kcal: 28, protein: 2.9, carbs: 2.1, fat: 0.9, sat: 0.1, sugar: 2, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Cucumber", kcal: 10, protein: 0.7, carbs: 1.5, fat: 0.1, sat: 0, sugar: 1.5, unit: { grams: 30, label: "few slices" }, servings: [
+    { label: "Few slices (30g)", grams: 30 },
+    { label: "1/4 cucumber (60g)", grams: 60 },
+    { label: "1/2 cucumber (120g)", grams: 120 },
+    { label: "Whole cucumber (240g)", grams: 240 },
+  ] },
+  { name: "Tomato", kcal: 18, protein: 0.9, carbs: 3.1, fat: 0.2, sat: 0, sugar: 2.6, unit: { grams: 123, label: "tomato" }, servings: [
+    { label: "Cherry tomato (10g)", grams: 10 },
+    { label: "Small tomato (90g)", grams: 90 },
+    { label: "Medium tomato (123g)", grams: 123 },
+    { label: "Large tomato (150g)", grams: 150 },
+  ] },
   { name: "Onion, raw", kcal: 40, protein: 1.2, carbs: 9.3, fat: 0.2, sat: 0, sugar: 4.2, unit: { grams: 75, label: "small onion" }, servings: [
     { label: "Small onion (75g)", grams: 75 },
     { label: "Medium onion (110g)", grams: 110 },
     { label: "Large onion (150g)", grams: 150 },
     { label: "Sliced, handful (30g)", grams: 30 },
   ] },
-  { name: "Mushrooms, raw", kcal: 22, protein: 1.8, carbs: 2.3, fat: 0.5, sat: 0.1, sugar: 1.5, unit: { grams: 80, label: "portion (handful)" } },
+  { name: "Mushrooms, raw", kcal: 22, protein: 1.8, carbs: 2.3, fat: 0.5, sat: 0.1, sugar: 1.5, unit: { grams: 80, label: "portion (handful)" }, servings: STANDARD_VEG_PORTION_SERVINGS },
   { name: "Bell pepper", kcal: 33, protein: 1, carbs: 6.6, fat: 0.3, sat: 0, sugar: 5.2, unit: { grams: 120, label: "pepper" }, servings: [
     { label: "1/2 medium pepper (80g)", grams: 80 },
     { label: "1 sliced ring (10g)", grams: 10 },
@@ -512,8 +603,12 @@ const FOOD_DB = [
     { label: "100g (edible portion)", grams: 100 },
     { label: "Medium pepper (160g)", grams: 160 },
   ] },
-  { name: "Sweet potato, baked", kcal: 115, protein: 2, carbs: 27.9, fat: 0.3, sat: 0, sugar: 8.6, unit: { grams: 180, label: "potato" } },
-  { name: "Green beans, boiled", kcal: 25, protein: 1.9, carbs: 3.2, fat: 0.5, sat: 0.1, sugar: 3, unit: { grams: 80, label: "portion" } },
+  { name: "Sweet potato, baked", kcal: 115, protein: 2, carbs: 27.9, fat: 0.3, sat: 0, sugar: 8.6, unit: { grams: 180, label: "potato" }, servings: [
+    { label: "Small sweet potato (130g)", grams: 130 },
+    { label: "Medium sweet potato (180g)", grams: 180 },
+    { label: "Large sweet potato (250g)", grams: 250 },
+  ] },
+  { name: "Green beans, boiled", kcal: 25, protein: 1.9, carbs: 3.2, fat: 0.5, sat: 0.1, sugar: 3, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
   // ---- Legumes & plant protein ----
   { name: "Chickpeas, canned, drained", kcal: 115, protein: 7.2, carbs: 16.1, fat: 2.1, sat: 0.2, sugar: 2.9, unit: { grams: 120, label: "portion" } },
   { name: "Lentils, cooked", kcal: 116, protein: 8.8, carbs: 17.5, fat: 0.4, sat: 0.1, sugar: 0.8, unit: { grams: 120, label: "portion" } },
@@ -584,53 +679,166 @@ const FOOD_DB = [
   { name: "Caffè Nero Americano, regular", kcal: 1.5, protein: 0, carbs: 0.1, fat: 0, sat: 0, sugar: 0, unit: { grams: 340, label: "regular" } },
   { name: "Chicken & pesto panini", kcal: 320, protein: 22, carbs: 30, fat: 13, sat: 4, sugar: 2, unit: { grams: 200, label: "panini" } },
   // ---- More fruit ----
-  { name: "Raspberries", kcal: 25, protein: 1.4, carbs: 4.6, fat: 0.3, sat: 0, sugar: 4.6, unit: { grams: 80, label: "handful (portion)" } },
-  { name: "Blackberries", kcal: 25, protein: 1.3, carbs: 4.4, fat: 0.2, sat: 0, sugar: 4.1, unit: { grams: 80, label: "handful (portion)" } },
-  { name: "Watermelon", kcal: 31, protein: 0.6, carbs: 7.1, fat: 0.2, sat: 0, sugar: 6.2, unit: { grams: 150, label: "slice" } },
-  { name: "Melon (cantaloupe)", kcal: 34, protein: 0.6, carbs: 8.3, fat: 0.1, sat: 0, sugar: 8, unit: { grams: 150, label: "slice" } },
-  { name: "Kiwi fruit", kcal: 61, protein: 1.1, carbs: 10.6, fat: 0.5, sat: 0, sugar: 9, unit: { grams: 76, label: "kiwi" } },
-  { name: "Peach", kcal: 39, protein: 1, carbs: 8.7, fat: 0.1, sat: 0, sugar: 8.4, unit: { grams: 150, label: "peach" } },
-  { name: "Plum", kcal: 36, protein: 0.6, carbs: 8.6, fat: 0.1, sat: 0, sugar: 8.6, unit: { grams: 66, label: "plum" } },
-  { name: "Cherries", kcal: 63, protein: 1.1, carbs: 14.6, fat: 0.2, sat: 0, sugar: 13.1, unit: { grams: 80, label: "handful (portion)" } },
-  { name: "Nectarine", kcal: 40, protein: 1.1, carbs: 9, fat: 0.1, sat: 0, sugar: 8.4, unit: { grams: 140, label: "nectarine" } },
-  { name: "Satsuma / clementine", kcal: 37, protein: 0.9, carbs: 8.3, fat: 0.1, sat: 0, sugar: 8.3, unit: { grams: 70, label: "satsuma" } },
-  { name: "Grapefruit", kcal: 30, protein: 0.8, carbs: 6.8, fat: 0.1, sat: 0, sugar: 6.8, unit: { grams: 230, label: "grapefruit" } },
-  { name: "Pomegranate", kcal: 83, protein: 1.7, carbs: 18.7, fat: 1.2, sat: 0.1, sugar: 13.9, unit: { grams: 87, label: "portion (half)" } },
-  { name: "Dried apricots", kcal: 158, protein: 4, carbs: 36.5, fat: 0.6, sat: 0.1, sugar: 36.5, unit: { grams: 30, label: "handful (portion)" } },
-  { name: "Raisins", kcal: 299, protein: 2.1, carbs: 69.3, fat: 0.4, sat: 0.1, sugar: 69.3, unit: { grams: 30, label: "handful (portion)" } },
-  { name: "Dates, dried", kcal: 270, protein: 2, carbs: 68, fat: 0.4, sat: 0.1, sugar: 63, unit: { grams: 30, label: "3 dates" } },
-  { name: "Figs, fresh", kcal: 43, protein: 1.3, carbs: 9.5, fat: 0.3, sat: 0, sugar: 9.5, unit: { grams: 50, label: "fig" } },
-  { name: "Lemon", kcal: 19, protein: 1, carbs: 3.2, fat: 0.3, sat: 0, sugar: 2.5, unit: { grams: 60, label: "lemon" } },
-  { name: "Lime", kcal: 20, protein: 0.7, carbs: 3, fat: 0.2, sat: 0, sugar: 1.7, unit: { grams: 44, label: "lime" } },
-  { name: "Rhubarb, stewed (no added sugar)", kcal: 7, protein: 0.9, carbs: 0.9, fat: 0.1, sat: 0, sugar: 0.9, unit: { grams: 80, label: "portion" } },
+  { name: "Raspberries", kcal: 25, protein: 1.4, carbs: 4.6, fat: 0.3, sat: 0, sugar: 4.6, unit: { grams: 80, label: "handful (portion)" }, servings: BERRY_SERVINGS },
+  { name: "Blackberries", kcal: 25, protein: 1.3, carbs: 4.4, fat: 0.2, sat: 0, sugar: 4.1, unit: { grams: 80, label: "handful (portion)" }, servings: BERRY_SERVINGS },
+  { name: "Watermelon", kcal: 31, protein: 0.6, carbs: 7.1, fat: 0.2, sat: 0, sugar: 6.2, unit: { grams: 150, label: "slice" }, servings: [
+    { label: "1 slice (150g)", grams: 150 },
+    { label: "Diced, 1 cup (160g)", grams: 160 },
+    { label: "Wedge (280g)", grams: 280 },
+  ] },
+  { name: "Melon (cantaloupe)", kcal: 34, protein: 0.6, carbs: 8.3, fat: 0.1, sat: 0, sugar: 8, unit: { grams: 150, label: "slice" }, servings: [
+    { label: "1 slice (150g)", grams: 150 },
+    { label: "Diced, 1 cup (160g)", grams: 160 },
+    { label: "Wedge (200g)", grams: 200 },
+  ] },
+  { name: "Kiwi fruit", kcal: 61, protein: 1.1, carbs: 10.6, fat: 0.5, sat: 0, sugar: 9, unit: { grams: 76, label: "kiwi" }, servings: [
+    { label: "Small kiwi (65g)", grams: 65 },
+    { label: "Medium kiwi (76g)", grams: 76 },
+    { label: "Large kiwi (90g)", grams: 90 },
+  ] },
+  { name: "Peach", kcal: 39, protein: 1, carbs: 8.7, fat: 0.1, sat: 0, sugar: 8.4, unit: { grams: 150, label: "peach" }, servings: [
+    { label: "Small peach (100g)", grams: 100 },
+    { label: "Medium peach (150g)", grams: 150 },
+    { label: "Large peach (200g)", grams: 200 },
+  ] },
+  { name: "Plum", kcal: 36, protein: 0.6, carbs: 8.6, fat: 0.1, sat: 0, sugar: 8.6, unit: { grams: 66, label: "plum" }, servings: [
+    { label: "1 plum (66g)", grams: 66 },
+    { label: "2 plums (132g)", grams: 132 },
+  ] },
+  { name: "Cherries", kcal: 63, protein: 1.1, carbs: 14.6, fat: 0.2, sat: 0, sugar: 13.1, unit: { grams: 80, label: "handful (portion)" }, servings: [
+    { label: "10 cherries (60g)", grams: 60 },
+    { label: "Handful, portion (80g)", grams: 80 },
+    { label: "100g (edible portion)", grams: 100 },
+  ] },
+  { name: "Nectarine", kcal: 40, protein: 1.1, carbs: 9, fat: 0.1, sat: 0, sugar: 8.4, unit: { grams: 140, label: "nectarine" }, servings: [
+    { label: "Small nectarine (100g)", grams: 100 },
+    { label: "Medium nectarine (140g)", grams: 140 },
+    { label: "Large nectarine (180g)", grams: 180 },
+  ] },
+  { name: "Satsuma / clementine", kcal: 37, protein: 0.9, carbs: 8.3, fat: 0.1, sat: 0, sugar: 8.3, unit: { grams: 70, label: "satsuma" }, servings: [
+    { label: "1 satsuma (70g)", grams: 70 },
+    { label: "2 satsumas (140g)", grams: 140 },
+  ] },
+  { name: "Grapefruit", kcal: 30, protein: 0.8, carbs: 6.8, fat: 0.1, sat: 0, sugar: 6.8, unit: { grams: 230, label: "grapefruit" }, servings: [
+    { label: "1/2 grapefruit (115g)", grams: 115 },
+    { label: "Whole grapefruit (230g)", grams: 230 },
+  ] },
+  { name: "Pomegranate", kcal: 83, protein: 1.7, carbs: 18.7, fat: 1.2, sat: 0.1, sugar: 13.9, unit: { grams: 87, label: "portion (half)" }, servings: [
+    { label: "2 tbsp seeds (30g)", grams: 30 },
+    { label: "1/2 pomegranate (87g)", grams: 87 },
+    { label: "Whole pomegranate (174g)", grams: 174 },
+  ] },
+  { name: "Dried apricots", kcal: 158, protein: 4, carbs: 36.5, fat: 0.6, sat: 0.1, sugar: 36.5, unit: { grams: 30, label: "handful (portion)" }, servings: [
+    { label: "3 apricots (15g)", grams: 15 },
+    { label: "Handful, portion (30g)", grams: 30 },
+  ] },
+  { name: "Raisins", kcal: 299, protein: 2.1, carbs: 69.3, fat: 0.4, sat: 0.1, sugar: 69.3, unit: { grams: 30, label: "handful (portion)" }, servings: [
+    { label: "1 tbsp (10g)", grams: 10 },
+    { label: "Handful, portion (30g)", grams: 30 },
+  ] },
+  { name: "Dates, dried", kcal: 270, protein: 2, carbs: 68, fat: 0.4, sat: 0.1, sugar: 63, unit: { grams: 30, label: "3 dates" }, servings: [
+    { label: "1 date (10g)", grams: 10 },
+    { label: "3 dates (30g)", grams: 30 },
+  ] },
+  { name: "Figs, fresh", kcal: 43, protein: 1.3, carbs: 9.5, fat: 0.3, sat: 0, sugar: 9.5, unit: { grams: 50, label: "fig" }, servings: [
+    { label: "1 fig (50g)", grams: 50 },
+    { label: "2 figs (100g)", grams: 100 },
+  ] },
+  { name: "Lemon", kcal: 19, protein: 1, carbs: 3.2, fat: 0.3, sat: 0, sugar: 2.5, unit: { grams: 60, label: "lemon" }, servings: [
+    { label: "1 wedge (15g)", grams: 15 },
+    { label: "1/2 lemon (30g)", grams: 30 },
+    { label: "Whole lemon (60g)", grams: 60 },
+    { label: "Juice of 1 (45g)", grams: 45 },
+  ] },
+  { name: "Lime", kcal: 20, protein: 0.7, carbs: 3, fat: 0.2, sat: 0, sugar: 1.7, unit: { grams: 44, label: "lime" }, servings: [
+    { label: "1 wedge (11g)", grams: 11 },
+    { label: "1/2 lime (22g)", grams: 22 },
+    { label: "Whole lime (44g)", grams: 44 },
+  ] },
+  { name: "Rhubarb, stewed (no added sugar)", kcal: 7, protein: 0.9, carbs: 0.9, fat: 0.1, sat: 0, sugar: 0.9, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
   // ---- More vegetables ----
-  { name: "Courgette, boiled", kcal: 19, protein: 2, carbs: 2, fat: 0.4, sat: 0.1, sugar: 2, unit: { grams: 80, label: "portion" } },
-  { name: "Aubergine, grilled", kcal: 33, protein: 1.2, carbs: 2.6, fat: 2.1, sat: 0.3, sugar: 2.5, unit: { grams: 80, label: "portion" } },
-  { name: "Leeks, boiled", kcal: 21, protein: 1.2, carbs: 2.9, fat: 0.7, sat: 0.1, sugar: 2.8, unit: { grams: 80, label: "portion" } },
-  { name: "Celery, raw", kcal: 7, protein: 0.5, carbs: 0.9, fat: 0.2, sat: 0, sugar: 0.9, unit: { grams: 40, label: "stick" } },
-  { name: "Cabbage, boiled", kcal: 16, protein: 1, carbs: 2.2, fat: 0.4, sat: 0.1, sugar: 2.2, unit: { grams: 80, label: "portion" } },
-  { name: "Brussels sprouts, boiled", kcal: 35, protein: 2.9, carbs: 3.5, fat: 1.3, sat: 0.2, sugar: 3, unit: { grams: 80, label: "portion (6-7 sprouts)" } },
-  { name: "Kale, raw", kcal: 49, protein: 4.3, carbs: 4.4, fat: 0.9, sat: 0.1, sugar: 0.8, unit: { grams: 80, label: "portion" } },
-  { name: "Butternut squash, roasted", kcal: 45, protein: 1.4, carbs: 10, fat: 0.3, sat: 0.1, sugar: 3.4, unit: { grams: 80, label: "portion" } },
-  { name: "Parsnips, roasted", kcal: 87, protein: 1.6, carbs: 13, fat: 3.4, sat: 0.4, sugar: 4.9, unit: { grams: 80, label: "portion" } },
-  { name: "Beetroot, cooked", kcal: 46, protein: 1.7, carbs: 9.5, fat: 0.1, sat: 0, sugar: 9.5, unit: { grams: 80, label: "portion" } },
-  { name: "Radish, raw", kcal: 12, protein: 0.7, carbs: 1.9, fat: 0.2, sat: 0, sugar: 1.9, unit: { grams: 40, label: "few radishes" } },
-  { name: "Asparagus, boiled", kcal: 26, protein: 3.1, carbs: 1.9, fat: 0.6, sat: 0.1, sugar: 1.5, unit: { grams: 80, label: "portion (5-6 spears)" } },
-  { name: "Runner beans, boiled", kcal: 18, protein: 1.4, carbs: 2.3, fat: 0.4, sat: 0.1, sugar: 1.9, unit: { grams: 80, label: "portion" } },
-  { name: "Swede, boiled", kcal: 11, protein: 0.5, carbs: 2.3, fat: 0.1, sat: 0, sugar: 2.3, unit: { grams: 80, label: "portion" } },
-  { name: "Garlic, raw", kcal: 98, protein: 7.9, carbs: 16.3, fat: 0.6, sat: 0.1, sugar: 1, unit: { grams: 3, label: "clove" } },
-  { name: "Ginger, root, raw", kcal: 80, protein: 1.8, carbs: 17.8, fat: 0.8, sat: 0.2, sugar: 1.7, unit: { grams: 5, label: "tsp, grated" } },
-  { name: "Aldi Bramwells Ginger Puree", kcal: 75, protein: 1.2, carbs: 16, fat: 0.5, sat: 0.1, sugar: 10, unit: { grams: 190, label: "jar" } },
-  { name: "Aldi Bramwells Garlic Puree", kcal: 73, protein: 3.5, carbs: 14, fat: 0.4, sat: 0.1, sugar: 2, unit: { grams: 190, label: "jar" } },
-  { name: "Spring onion, raw", kcal: 23, protein: 2, carbs: 3, fat: 0.5, sat: 0.1, sugar: 2.3, unit: { grams: 15, label: "2 onions" } },
-  { name: "Lettuce, iceberg", kcal: 13, protein: 0.7, carbs: 1.9, fat: 0.2, sat: 0, sugar: 1.9, unit: { grams: 30, label: "handful" } },
-  { name: "Rocket", kcal: 25, protein: 2.6, carbs: 2, fat: 0.7, sat: 0.1, sugar: 2, unit: { grams: 20, label: "handful" } },
-  { name: "Watercress", kcal: 22, protein: 3, carbs: 0.4, fat: 1, sat: 0.2, sugar: 0.4, unit: { grams: 20, label: "handful" } },
+  { name: "Courgette, boiled", kcal: 19, protein: 2, carbs: 2, fat: 0.4, sat: 0.1, sugar: 2, unit: { grams: 80, label: "portion" }, servings: [
+    { label: "Portion, sliced (80g)", grams: 80 },
+    { label: "1/2 courgette (100g)", grams: 100 },
+    { label: "Whole courgette (200g)", grams: 200 },
+  ] },
+  { name: "Aubergine, grilled", kcal: 33, protein: 1.2, carbs: 2.6, fat: 2.1, sat: 0.3, sugar: 2.5, unit: { grams: 80, label: "portion" }, servings: [
+    { label: "Portion, sliced (80g)", grams: 80 },
+    { label: "1/2 aubergine (130g)", grams: 130 },
+    { label: "Whole aubergine (260g)", grams: 260 },
+  ] },
+  { name: "Leeks, boiled", kcal: 21, protein: 1.2, carbs: 2.9, fat: 0.7, sat: 0.1, sugar: 2.8, unit: { grams: 80, label: "portion" }, servings: [
+    { label: "Portion, sliced (80g)", grams: 80 },
+    { label: "1 whole leek (150g)", grams: 150 },
+  ] },
+  { name: "Celery, raw", kcal: 7, protein: 0.5, carbs: 0.9, fat: 0.2, sat: 0, sugar: 0.9, unit: { grams: 40, label: "stick" }, servings: [
+    { label: "1 stick (40g)", grams: 40 },
+    { label: "2 sticks (80g)", grams: 80 },
+  ] },
+  { name: "Cabbage, boiled", kcal: 16, protein: 1, carbs: 2.2, fat: 0.4, sat: 0.1, sugar: 2.2, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Brussels sprouts, boiled", kcal: 35, protein: 2.9, carbs: 3.5, fat: 1.3, sat: 0.2, sugar: 3, unit: { grams: 80, label: "portion (6-7 sprouts)" }, servings: [
+    { label: "3 sprouts (40g)", grams: 40 },
+    { label: "Portion, 6-7 sprouts (80g)", grams: 80 },
+  ] },
+  { name: "Kale, raw", kcal: 49, protein: 4.3, carbs: 4.4, fat: 0.9, sat: 0.1, sugar: 0.8, unit: { grams: 80, label: "portion" }, servings: LEAFY_GREENS_SERVINGS },
+  { name: "Butternut squash, roasted", kcal: 45, protein: 1.4, carbs: 10, fat: 0.3, sat: 0.1, sugar: 3.4, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Parsnips, roasted", kcal: 87, protein: 1.6, carbs: 13, fat: 3.4, sat: 0.4, sugar: 4.9, unit: { grams: 80, label: "portion" }, servings: [
+    { label: "1 parsnip (70g)", grams: 70 },
+    { label: "Portion (80g)", grams: 80 },
+  ] },
+  { name: "Beetroot, cooked", kcal: 46, protein: 1.7, carbs: 9.5, fat: 0.1, sat: 0, sugar: 9.5, unit: { grams: 80, label: "portion" }, servings: [
+    { label: "1 beetroot (50g)", grams: 50 },
+    { label: "Portion (80g)", grams: 80 },
+  ] },
+  { name: "Radish, raw", kcal: 12, protein: 0.7, carbs: 1.9, fat: 0.2, sat: 0, sugar: 1.9, unit: { grams: 40, label: "few radishes" }, servings: [
+    { label: "1 radish (5g)", grams: 5 },
+    { label: "Few radishes (40g)", grams: 40 },
+  ] },
+  { name: "Asparagus, boiled", kcal: 26, protein: 3.1, carbs: 1.9, fat: 0.6, sat: 0.1, sugar: 1.5, unit: { grams: 80, label: "portion (5-6 spears)" }, servings: [
+    { label: "3 spears (40g)", grams: 40 },
+    { label: "Portion, 5-6 spears (80g)", grams: 80 },
+  ] },
+  { name: "Runner beans, boiled", kcal: 18, protein: 1.4, carbs: 2.3, fat: 0.4, sat: 0.1, sugar: 1.9, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Swede, boiled", kcal: 11, protein: 0.5, carbs: 2.3, fat: 0.1, sat: 0, sugar: 2.3, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Garlic, raw", kcal: 98, protein: 7.9, carbs: 16.3, fat: 0.6, sat: 0.1, sugar: 1, unit: { grams: 3, label: "clove" }, servings: [
+    { label: "1 clove (3g)", grams: 3 },
+    { label: "2 cloves (6g)", grams: 6 },
+    { label: "1 tsp, crushed (5g)", grams: 5 },
+  ] },
+  { name: "Ginger, root, raw", kcal: 80, protein: 1.8, carbs: 17.8, fat: 0.8, sat: 0.2, sugar: 1.7, unit: { grams: 5, label: "tsp, grated" }, servings: [
+    { label: "1 tsp, grated (5g)", grams: 5 },
+    { label: "Thumb-sized piece (15g)", grams: 15 },
+  ] },
+  { name: "Aldi Bramwells Ginger Puree", kcal: 75, protein: 1.2, carbs: 16, fat: 0.5, sat: 0.1, sugar: 10, unit: { grams: 190, label: "jar" }, servings: [
+    { label: "1 tsp (5g)", grams: 5 },
+    { label: "1 tbsp (15g)", grams: 15 },
+  ] },
+  { name: "Aldi Bramwells Garlic Puree", kcal: 73, protein: 3.5, carbs: 14, fat: 0.4, sat: 0.1, sugar: 2, unit: { grams: 190, label: "jar" }, servings: [
+    { label: "1 tsp (5g)", grams: 5 },
+    { label: "1 tbsp (15g)", grams: 15 },
+  ] },
+  { name: "Spring onion, raw", kcal: 23, protein: 2, carbs: 3, fat: 0.5, sat: 0.1, sugar: 2.3, unit: { grams: 15, label: "2 onions" }, servings: [
+    { label: "1 spring onion (7g)", grams: 7 },
+    { label: "2 spring onions (15g)", grams: 15 },
+    { label: "Chopped, handful (30g)", grams: 30 },
+  ] },
+  { name: "Lettuce, iceberg", kcal: 13, protein: 0.7, carbs: 1.9, fat: 0.2, sat: 0, sugar: 1.9, unit: { grams: 30, label: "handful" }, servings: LEAFY_GREENS_SERVINGS },
+  { name: "Rocket", kcal: 25, protein: 2.6, carbs: 2, fat: 0.7, sat: 0.1, sugar: 2, unit: { grams: 20, label: "handful" }, servings: [
+    { label: "Handful (20g)", grams: 20 },
+    { label: "Large handful (40g)", grams: 40 },
+  ] },
+  { name: "Watercress", kcal: 22, protein: 3, carbs: 0.4, fat: 1, sat: 0.2, sugar: 0.4, unit: { grams: 20, label: "handful" }, servings: [
+    { label: "Handful (20g)", grams: 20 },
+    { label: "Large handful (40g)", grams: 40 },
+  ] },
   { name: "Butter beans, canned", kcal: 77, protein: 5.9, carbs: 11.6, fat: 0.5, sat: 0.1, sugar: 1.3, unit: { grams: 120, label: "portion" } },
   { name: "Broad beans, boiled", kcal: 81, protein: 7.9, carbs: 11.7, fat: 0.6, sat: 0.1, sugar: 1.9, unit: { grams: 80, label: "portion" } },
   { name: "Edamame beans, boiled", kcal: 121, protein: 11.9, carbs: 8.9, fat: 5.2, sat: 0.6, sugar: 2.2, unit: { grams: 80, label: "portion" } },
-  { name: "Celeriac, boiled", kcal: 15, protein: 0.8, carbs: 2, fat: 0.2, sat: 0, sugar: 1.6, unit: { grams: 80, label: "portion" } },
-  { name: "Fennel, raw", kcal: 12, protein: 0.9, carbs: 1.8, fat: 0.2, sat: 0, sugar: 1.8, unit: { grams: 80, label: "portion" } },
+  { name: "Celeriac, boiled", kcal: 15, protein: 0.8, carbs: 2, fat: 0.2, sat: 0, sugar: 1.6, unit: { grams: 80, label: "portion" }, servings: STANDARD_VEG_PORTION_SERVINGS },
+  { name: "Fennel, raw", kcal: 12, protein: 0.9, carbs: 1.8, fat: 0.2, sat: 0, sugar: 1.8, unit: { grams: 80, label: "portion" }, servings: [
+    { label: "Portion, sliced (80g)", grams: 80 },
+    { label: "1/2 bulb (150g)", grams: 150 },
+  ] },
   // ---- More nuts & seeds ----
   { name: "Walnuts", kcal: 688, protein: 14.7, carbs: 6.8, fat: 68.5, sat: 5.6, sugar: 2.6, unit: { grams: 30, label: "handful" } },
   { name: "Pistachios", kcal: 601, protein: 20.6, carbs: 8.2, fat: 53.5, sat: 6.1, sugar: 7.7, unit: { grams: 30, label: "handful" } },
