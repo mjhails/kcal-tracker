@@ -2769,7 +2769,16 @@ export default function App() {
     const sugar = findFirst([new RegExp(`sugars?${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i")]);
     const carbs = findFirst([new RegExp(`carb(?:ohydrate)?s?${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i")]);
     const protein = findFirst([new RegExp(`protein${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i")]);
-    const salt = findFirst([new RegExp(`salt${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i")]);
+    let salt = findFirst([new RegExp(`salt${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}g`, "i")]);
+    // Google's own nutrition panel (what a "nutrition of X" search/AI answer shows)
+    // follows the US label convention — Sodium in mg, never Salt in g, which a UK
+    // label always uses instead. Without this, every such screenshot left salt (and
+    // nothing else, since everything else is in g already) silently blank. Same
+    // sodium*2.5/1000 conversion already used for the USDA barcode lookup elsewhere.
+    if (salt === undefined) {
+      const sodiumMg = findFirst([new RegExp(`sodium${GAP}(\\d+[.,]?\\d*)${UNIT_GAP}mg`, "i")]);
+      if (sodiumMg !== undefined) salt = Math.round(((sodiumMg * 2.5) / 1000) * 100) / 100;
+    }
     const kcal = findFirst([/calories\D{0,10}(\d+)/i, /energy\D{0,15}(\d+)\s*kcal/i, /(\d+)\s*kcal/i]);
 
     // Alcohol units, only if this looks like a drink label — UK units per 100ml = %ABV ÷ 10,
@@ -2807,16 +2816,53 @@ export default function App() {
     return { kcal, protein, carbs, fat, sat, sugar, salt, units, name };
   }
 
+  // Tesseract is trained on dark text over a light page and reads pale/white text on
+  // a dark background very poorly — exactly what a screenshot of a chat app (Google's
+  // AI answers, ChatGPT, etc.) looks like in dark mode, which is most phones' default.
+  // Measuring the image's average brightness and inverting it when it's predominantly
+  // dark turns that back into dark-on-light before OCR ever sees it. Falls back to the
+  // original file untouched if anything here fails, so this can only help, not hurt.
+  async function preprocessLabelImage(file) {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(bitmap, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      let total = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        total += (data[i] + data[i + 1] + data[i + 2]) / 3;
+      }
+      const avgBrightness = total / (data.length / 4);
+      if (avgBrightness < 128) {
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = 255 - data[i];
+          data[i + 1] = 255 - data[i + 1];
+          data[i + 2] = 255 - data[i + 2];
+        }
+        ctx.putImageData(imageData, 0, 0);
+      }
+      const blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+      return blob || file;
+    } catch (e) {
+      return file; // canvas/image decoding failed for some reason — OCR the original
+    }
+  }
+
   async function handleLabelImage(file) {
     if (!file) return;
     setLabelScanLoading(true);
     setLabelScanNote("");
     try {
+      const processedImage = await preprocessLabelImage(file);
       const { createWorker } = await import("tesseract.js");
       const worker = await createWorker("eng");
       const {
         data: { text },
-      } = await worker.recognize(file);
+      } = await worker.recognize(processedImage);
       await worker.terminate();
 
       const found = parseNutritionText(text);
