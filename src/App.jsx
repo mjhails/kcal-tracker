@@ -37,7 +37,6 @@ import {
   User,
   ShoppingCart,
 } from "lucide-react";
-import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
   auth,
   watchAuth,
@@ -1517,6 +1516,7 @@ export default function App() {
   const [barcodeLoading, setBarcodeLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState("");
+  const [scanHint, setScanHint] = useState("");
   const [editingEntry, setEditingEntry] = useState(null);
   const [editAmountMode, setEditAmountMode] = useState("grams");
   const [editWeightUnit, setEditWeightUnit] = useState("g");
@@ -2999,20 +2999,37 @@ export default function App() {
     let cancelled = false;
     let stream = null;
     let controlsLocal = null;
+    setScanHint("");
+    // If nothing's decoded after a while, the live video is presumably fine (otherwise
+    // the catch block below would already have surfaced an error) — more likely a focus/
+    // distance/lighting issue, or the possible-formats restriction genuinely doesn't match
+    // what's being pointed at. Nudge toward the manual fallback rather than leaving it
+    // looking like the scanner has silently given up.
+    const stuckTimer = setTimeout(() => {
+      if (!cancelled) setScanHint("Still searching — try moving closer, holding steady, or type the number below instead.");
+    }, 8000);
 
     (async () => {
       try {
         // Ask for a decent resolution and continuous autofocus — low-res, unfocused
         // frames are the biggest reason a real barcode fails to decode. Both go in
-        // `ideal`/`advanced` so unsupported cameras just ignore them instead of failing.
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            advanced: [{ focusMode: "continuous" }],
-          },
-        });
+        // `ideal`/`advanced` so unsupported cameras are meant to just ignore them rather
+        // than fail outright — but that's not reliably true of every browser/camera
+        // combination in practice, so a rejection here retries once with a minimal,
+        // near-universally-supported constraint set instead of giving up immediately.
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              advanced: [{ focusMode: "continuous" }],
+            },
+          });
+        } catch (e) {
+          if (cancelled) return;
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        }
         if (cancelled || !videoRef.current) {
           stream.getTracks().forEach((t) => t.stop());
           return;
@@ -3073,6 +3090,8 @@ export default function App() {
 
     return () => {
       cancelled = true;
+      clearTimeout(stuckTimer);
+      setScanHint("");
       if (controlsLocal) {
         try {
           controlsLocal.stop();
@@ -4466,6 +4485,7 @@ export default function App() {
                             <Barcode size={16} /> Scan with camera
                           </button>
                         )}
+                        {scanning && scanHint && <p style={styles.barcodeHint}>{scanHint}</p>}
                       </>
                     )}
 
