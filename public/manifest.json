@@ -7,7 +7,7 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FFFFFF",
-  "theme_color": "#22D3EE",
+  "theme_color": "#06060A",
   "icons": [
     {
       "src": "/kcal-tracker/icon-192.png",
