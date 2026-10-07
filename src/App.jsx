@@ -2879,6 +2879,18 @@ export default function App() {
       return /[a-z]{3,}/i.test(l);
     };
 
+    // Tesseract quite often misreads the "g" in a portion weight as a stray digit
+    // ("50g" -> "509", "90g" -> "909", "48g" -> "489") — the line then has no
+    // letter-"g" for weightPattern to find, but it's still obviously a portion
+    // line, not a food name: a bare 2-4 digit line, or a parenthesised group of
+    // 1-4 digits with no unit letter next to it (e.g. "Medium portion (909)").
+    // Letting looksLikeName catch these instead (which it otherwise would, since
+    // "Medium portion" reads as real words) was overwriting whatever real name
+    // was still pending — silently dropping that ingredient entirely.
+    const bareDigitLine = /^\d{2,4}$/;
+    const garbledWeightParen = /\(\s*\d{1,4}\s*\)/;
+    const looksLikeGarbledWeight = (l) => bareDigitLine.test(l) || (garbledWeightParen.test(l) && !weightPattern.test(l));
+
     const items = [];
     let pendingName = null;
     let skippedCount = 0;
@@ -2890,6 +2902,18 @@ export default function App() {
           pendingName = null;
         } else {
           skippedCount++; // a weight with no readable name before it — drop it rather than guess
+        }
+        continue;
+      }
+      if (looksLikeGarbledWeight(line)) {
+        if (pendingName) {
+          // We know there was a portion here but can't trust the misread number —
+          // keep the ingredient (with a default weight to adjust) rather than
+          // lose it outright; the review screen already asks to check every amount.
+          items.push({ name: pendingName, grams: 100, weightUnclear: true });
+          pendingName = null;
+        } else {
+          skippedCount++;
         }
         continue;
       }
@@ -3059,15 +3083,30 @@ export default function App() {
       const resolved = await Promise.all(
         rawItems.map(async (it) => {
           const r = await resolveIngredientCandidates(it.name);
-          return { rawName: it.name, grams: it.grams, editing: r.status !== "matched", searched: true, ...r };
+          return {
+            rawName: it.name,
+            grams: it.grams,
+            weightUnclear: !!it.weightUnclear,
+            editing: r.status !== "matched",
+            searched: true,
+            ...r,
+          };
         })
       );
       setPhotoItems(resolved);
-      if (skippedCount > 0) {
+      const unclearCount = resolved.filter((it) => it.weightUnclear).length;
+      if (skippedCount > 0 || unclearCount > 0) {
+        const parts = [];
+        if (skippedCount > 0) {
+          parts.push(`${skippedCount} line${skippedCount === 1 ? " wasn't" : "s weren't"} clear enough to read`);
+        }
+        if (unclearCount > 0) {
+          parts.push(`${unclearCount} amount${unclearCount === 1 ? "" : "s"} couldn't be read and default to 100g`);
+        }
         setPhotoScanNote(
-          `Read ${resolved.length} ingredient${resolved.length === 1 ? "" : "s"} from that photo — ${skippedCount} line${
-            skippedCount === 1 ? " wasn't" : "s weren't"
-          } clear enough to read, so check nothing's missing below and add it manually if so.`
+          `Read ${resolved.length} ingredient${resolved.length === 1 ? "" : "s"} from that photo — ${parts.join(
+            ", "
+          )}, so check nothing's missing or wrong below.`
         );
       }
       if (!photoMealName) {
@@ -3101,7 +3140,7 @@ export default function App() {
   }
 
   function updatePhotoItemGrams(index, grams) {
-    setPhotoItems((prev) => prev.map((it, i) => (i === index ? { ...it, grams } : it)));
+    setPhotoItems((prev) => prev.map((it, i) => (i === index ? { ...it, grams, weightUnclear: false } : it)));
   }
 
   function updatePhotoItemRawName(index, rawName) {
@@ -5839,7 +5878,11 @@ export default function App() {
                           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
                             <input
                               type="number"
-                              style={{ ...styles.textInput, flex: 1 }}
+                              style={{
+                                ...styles.textInput,
+                                flex: 1,
+                                ...(item.weightUnclear ? { borderColor: "var(--warn, #E8A33D)" } : {}),
+                              }}
                               value={item.grams}
                               onChange={(ev) => updatePhotoItemGrams(i, ev.target.value)}
                             />
@@ -5848,6 +5891,11 @@ export default function App() {
                               Change
                             </button>
                           </div>
+                          {item.weightUnclear && (
+                            <p style={styles.barcodeHint}>
+                              Couldn't read the amount for this one — defaulted to 100g, check it's right.
+                            </p>
+                          )}
                         </>
                       ) : (
                         <>
