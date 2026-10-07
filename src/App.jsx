@@ -6295,7 +6295,16 @@ const styles = {
     padding: "36px 28px 28px",
     boxShadow: "0 1px 2px rgba(20,20,15,0.04), 0 16px 32px rgba(20,20,15,0.08)",
   },
-  lockTitle: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: 22, margin: "10px 0 0" },
+  lockBrand: {
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "var(--muted)",
+    marginTop: 10,
+  },
+  lockTitle: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: 22, margin: "2px 0 0" },
   lockSub: { fontSize: 13, color: "var(--muted)", margin: "0 0 4px", lineHeight: 1.4 },
   lockInput: {
     background: "var(--bg)",

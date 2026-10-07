@@ -1,6 +1,25 @@
 import React, { useState } from "react";
 import { signIn, signUp, signInWithGoogle } from "./firebase.js";
 
+// Kept in sync with the Logo component in App.jsx — duplicated rather than shared
+// across the two files to avoid a circular import (App.jsx renders AuthScreen).
+function Logo({ size = 38 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="20" cy="20" r="19" fill="#22D3EE" />
+      <path
+        d="M20 7a13 13 0 1 1-9.19 3.81"
+        stroke="#FFFFFF"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        fill="none"
+        opacity="0.92"
+      />
+      <circle cx="20" cy="20" r="4.5" fill="#FFFFFF" />
+    </svg>
+  );
+}
+
 export default function AuthScreen({ styles }) {
   const [mode, setMode] = useState("signin"); // 'signin' | 'signup'
   const [name, setName] = useState("");
@@ -41,6 +60,8 @@ export default function AuthScreen({ styles }) {
   return (
     <div style={styles.lockScreen}>
       <div style={styles.lockCard}>
+        <Logo size={48} />
+        <span style={styles.lockBrand}>Kcal Tracker</span>
         <h2 style={styles.lockTitle}>{mode === "signup" ? "Create your account" : "Welcome back"}</h2>
         <p style={styles.lockSub}>
           {mode === "signup" ? "Your own log, targets, and weekly view." : "Sign in to see your log."}
