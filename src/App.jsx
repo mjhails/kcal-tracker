@@ -2864,17 +2864,32 @@ export default function App() {
       if (!m) return false;
       return l.replace(weightPattern, "").trim().length <= 20;
     };
-    const looksLikeName = (l) =>
-      l.length >= 3 && l.length <= 70 && !mealHeaderWords.test(l) && !summaryRow.test(l) && /[a-z]{2,}/i.test(l);
+    // A real food name is mostly letters ("Green Beans, Boiled" is ~90% letters) —
+    // a line Tesseract has badly misread often survives as a short jumble of stray
+    // characters that technically contains two consecutive letters somewhere
+    // ("hk 22 [08", "oo 8s (0:2)") but is obviously not a word. Requiring most of
+    // the line to actually BE letters, plus at least one real 3+ letter word, is
+    // what separates "Green Beans, Boiled" from that kind of garbled noise.
+    const looksLikeName = (l) => {
+      if (l.length < 3 || l.length > 70) return false;
+      if (mealHeaderWords.test(l) || summaryRow.test(l)) return false;
+      const letters = (l.match(/[a-z]/gi) || []).length;
+      const nonSpace = l.replace(/\s/g, "").length;
+      if (nonSpace === 0 || letters / nonSpace < 0.55) return false;
+      return /[a-z]{3,}/i.test(l);
+    };
 
     const items = [];
     let pendingName = null;
+    let skippedCount = 0;
     for (const line of lines) {
       if (isPortionOnly(line)) {
         const m = line.match(weightPattern);
         if (pendingName) {
           items.push({ name: pendingName, grams: parseFloat(m[1]) });
           pendingName = null;
+        } else {
+          skippedCount++; // a weight with no readable name before it — drop it rather than guess
         }
         continue;
       }
@@ -2890,7 +2905,20 @@ export default function App() {
         pendingName = line.replace(/[.…]{2,}$/, "").trim(); // drop a truncated name's trailing "..."
       }
     }
-    return items;
+    return { items, skippedCount };
+  }
+
+  // A handful of words that describe how something was prepared rather than what
+  // it actually is — safe to ignore when deciding whether a word the query
+  // mentions and the candidate doesn't is actually significant (below), and when
+  // simplifying a query for an online search ("Green Beans, Boiled or Steamed"
+  // searched online as-is surfaces random other "boiled" products, not beans).
+  const INGREDIENT_SEARCH_STOPWORDS =
+    /^(or|and|with|plain|fresh|raw|cooked|boiled|steamed|grilled|baked|fried|roasted|a|the|of|in)$/i;
+  function simplifyForOnlineSearch(name) {
+    const words = name.split(/\s+/).filter((w) => !INGREDIENT_SEARCH_STOPWORDS.test(w.replace(/[,.]/g, "")));
+    const cleaned = words.join(" ").replace(/,/g, "").trim();
+    return cleaned.length >= 3 ? cleaned : name;
   }
 
   // matchRank (what the search box uses) requires every word *in the query* to
@@ -2901,16 +2929,35 @@ export default function App() {
   // going to contain, so matchRank always came back null even for an obviously
   // correct match. This scores the other way around instead: how much of the
   // *candidate's* name is accounted for somewhere in the (longer) query, tolerating
-  // extra query words rather than failing outright because of them.
+  // extra query words rather than failing outright because of them — but it also
+  // checks the reverse: a *query* word the candidate doesn't account for at all
+  // matters too, unless it's just a prep-method filler word. Without this second
+  // check, "Peanut butter" matched plain "Butter" ahead of "Peanut butter,
+  // smooth" — "Butter" covers 100% of its own (one) word, but silently drops
+  // "peanut", which is a different food, not a detail about how it was made.
   function ingredientMatchScore(query, candidateName) {
     const q = stripAccents(query.trim().toLowerCase());
     const t = stripAccents(candidateName.toLowerCase());
     if (!q || !t) return null;
     if (t === q) return 0;
-    if (q.includes(t)) return 1; // the whole candidate name appears verbatim inside the query
     const candidateWords = t.split(/[^a-z0-9]+/).filter(Boolean);
     const queryWords = q.split(/[^a-z0-9]+/).filter(Boolean);
     if (candidateWords.length === 0 || queryWords.length === 0) return null;
+    // Any query word left unaccounted for by the candidate's own words — not a
+    // trivial substring check, since "butter" is literally inside "peanut
+    // butter" and would otherwise pass straight through as if "peanut" didn't
+    // matter. Filler/prep words are exempt: they describe how something was
+    // made, not what it is, so leaving them unmatched is never a real gap.
+    const significantGapWords = (leftoverWords) =>
+      leftoverWords.filter((w) => w.length >= 4 && !INGREDIENT_SEARCH_STOPWORDS.test(w)).length;
+
+    if (q.includes(t)) {
+      // the whole candidate name appears verbatim inside the query — still check
+      // whether the query names something more specific than that (e.g. the
+      // query is "peanut butter" and the candidate is just "butter").
+      const leftover = queryWords.filter((qw) => !candidateWords.some((cw) => wordMatchScore(cw, qw) !== null));
+      return 1 + significantGapWords(leftover) * 6;
+    }
     let matchedCount = 0;
     let totalDist = 0;
     for (const cw of candidateWords) {
@@ -2926,7 +2973,10 @@ export default function App() {
     }
     const coverage = matchedCount / candidateWords.length;
     if (coverage < 0.6) return null; // most of what the candidate is called has to show up in the query
-    return 2 + totalDist + (1 - coverage) * 5;
+    const unexplainedQueryWords = queryWords.filter(
+      (qw) => !candidateWords.some((cw) => wordMatchScore(cw, qw) !== null)
+    );
+    return 2 + totalDist + (1 - coverage) * 5 + significantGapWords(unexplainedQueryWords) * 6;
   }
 
   // Ranks this ingredient's name against the local catalogue (built-in + anything
@@ -2941,18 +2991,6 @@ export default function App() {
       .sort((a, b) => a.score - b.score);
     if (scored.length === 0) return { candidates: [], confident: false };
     return { candidates: scored.slice(0, 4).map((x) => x.food), confident: scored[0].score <= 2 };
-  }
-
-  // A handful of words that describe how something was prepared rather than what
-  // it actually is — useful for matching against a concise catalogue name (above),
-  // but they just add noise to an online text search ("Green Beans, Boiled or
-  // Steamed" searched online surfaces random other "boiled" products, not beans).
-  const INGREDIENT_SEARCH_STOPWORDS =
-    /^(or|and|with|plain|fresh|raw|cooked|boiled|steamed|grilled|baked|fried|roasted|a|the|of|in)$/i;
-  function simplifyForOnlineSearch(name) {
-    const words = name.split(/\s+/).filter((w) => !INGREDIENT_SEARCH_STOPWORDS.test(w.replace(/[,.]/g, "")));
-    const cleaned = words.join(" ").replace(/,/g, "").trim();
-    return cleaned.length >= 3 ? cleaned : name;
   }
 
   // Full resolution for one extracted ingredient: trust a confident local match
@@ -3011,20 +3049,27 @@ export default function App() {
       } = await worker.recognize(processedImage);
       await worker.terminate();
 
-      const rawItems = parseIngredientListText(text);
+      const { items: rawItems, skippedCount } = parseIngredientListText(text);
       if (rawItems.length === 0) {
         setPhotoScanNote(
-          "Couldn't make out any ingredients in that photo — try a clearer or closer shot, or build this meal manually from Add food instead."
+          "Couldn't make out any ingredients in that photo — try a clearer or closer shot, or add each ingredient below instead."
         );
         return;
       }
       const resolved = await Promise.all(
         rawItems.map(async (it) => {
           const r = await resolveIngredientCandidates(it.name);
-          return { rawName: it.name, grams: it.grams, editing: r.status !== "matched", ...r };
+          return { rawName: it.name, grams: it.grams, editing: r.status !== "matched", searched: true, ...r };
         })
       );
       setPhotoItems(resolved);
+      if (skippedCount > 0) {
+        setPhotoScanNote(
+          `Read ${resolved.length} ingredient${resolved.length === 1 ? "" : "s"} from that photo — ${skippedCount} line${
+            skippedCount === 1 ? " wasn't" : "s weren't"
+          } clear enough to read, so check nothing's missing below and add it manually if so.`
+        );
+      }
       if (!photoMealName) {
         setPhotoMealName(file.name ? file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ") : "");
       }
@@ -3038,6 +3083,17 @@ export default function App() {
 
   function removePhotoItem(index) {
     setPhotoItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // Adds a blank, already-open-for-editing row — the same way a manually-typed
+  // search works for any item the photo scan couldn't read, this is just that same
+  // row with nothing pre-filled, letting a meal be built entirely by hand instead
+  // of only via a photo.
+  function addBlankPhotoItem() {
+    setPhotoItems((prev) => [
+      ...prev,
+      { rawName: "", grams: 100, status: "unmatched", chosen: null, candidates: [], editing: true, searched: false },
+    ]);
   }
 
   function togglePhotoItemEditing(index) {
@@ -3066,7 +3122,11 @@ export default function App() {
     if (!item || !item.rawName.trim()) return;
     setPhotoItems((prev) => prev.map((it, i) => (i === index ? { ...it, searching: true } : it)));
     const r = await resolveIngredientCandidates(item.rawName.trim());
-    setPhotoItems((prev) => prev.map((it, i) => (i === index ? { ...it, ...r, searching: false, editing: true } : it)));
+    setPhotoItems((prev) =>
+      prev.map((it, i) =>
+        i === index ? { ...it, ...r, searching: false, searched: true, editing: r.status !== "matched" } : it
+      )
+    );
   }
 
   // Saves whichever candidate was chosen (or confidently auto-matched) for every
@@ -4172,8 +4232,8 @@ export default function App() {
             </div>
 
             <button style={{ ...styles.secondaryBtn, marginBottom: 14 }} onClick={openCreateMealPhoto}>
-              <ImageUp size={15} strokeWidth={1.75} style={{ marginRight: 6 }} />
-              Create a meal from a photo
+              <BookmarkPlus size={15} strokeWidth={1.75} style={{ marginRight: 6 }} />
+              Create a meal
             </button>
 
             <div style={styles.panelCard}>
@@ -5697,15 +5757,16 @@ export default function App() {
         </div>
       )}
 
-      {/* Create a meal from a photo of an ingredient list — OCR extracts name+weight
-          pairs, each gets matched to a food (local catalogue first, then a live OFF
-          search for anything not found), and nothing saves until every row is either
-          a confirmed match or deliberately removed. */}
+      {/* Create a meal, either from a photo of an ingredient list (OCR extracts
+          name+weight pairs) or by adding ingredients one at a time by hand — either
+          way every ingredient gets matched to a food (local catalogue first, then a
+          live OFF search for anything not found), and nothing saves until every row
+          is either a confirmed match or deliberately removed. */}
       {showCreateMealPhoto && (
         <div style={styles.overlay} className="overlay-anim" onClick={closeCreateMealPhoto}>
           <div style={styles.sheet} className="sheet-anim" onClick={(ev) => ev.stopPropagation()}>
             <div style={styles.sheetHeader}>
-              <span style={styles.sheetTitle}>Create meal from a photo</span>
+              <span style={styles.sheetTitle}>Create a meal</span>
               <button style={styles.iconBtn} onClick={closeCreateMealPhoto}>
                 <X size={18} />
               </button>
@@ -5713,8 +5774,8 @@ export default function App() {
 
             <p style={styles.barcodeHint}>
               Upload a photo or screenshot of a meal's ingredient list (another app's diary entry, a recipe card,
-              your own notes) — each line gets matched to a food here, and you check or correct anything before it's
-              saved.
+              your own notes), or add each ingredient yourself below — either way, you check or correct anything
+              before it's saved.
             </p>
 
             <input
@@ -5728,24 +5789,30 @@ export default function App() {
                 ev.target.value = "";
               }}
             />
-            <button
-              type="button"
-              style={{ ...styles.scanStartBtn, ...(photoScanLoading ? { opacity: 0.6 } : {}) }}
-              disabled={photoScanLoading}
-              onClick={() => mealPhotoInputRef.current && mealPhotoInputRef.current.click()}
-            >
-              {photoScanLoading ? (
-                <>
-                  <Loader2 size={15} className="spin" style={{ marginRight: 6 }} />
-                  Reading photo…
-                </>
-              ) : (
-                <>
-                  <ImageUp size={15} strokeWidth={1.75} style={{ marginRight: 6 }} />
-                  {photoItems.length > 0 ? "Choose a different photo" : "Choose a photo"}
-                </>
-              )}
-            </button>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <button
+                type="button"
+                style={{ ...styles.scanStartBtn, flex: 1, ...(photoScanLoading ? { opacity: 0.6 } : {}) }}
+                disabled={photoScanLoading}
+                onClick={() => mealPhotoInputRef.current && mealPhotoInputRef.current.click()}
+              >
+                {photoScanLoading ? (
+                  <>
+                    <Loader2 size={15} className="spin" style={{ marginRight: 6 }} />
+                    Reading photo…
+                  </>
+                ) : (
+                  <>
+                    <ImageUp size={15} strokeWidth={1.75} style={{ marginRight: 6 }} />
+                    {photoItems.length > 0 ? "Choose a different photo" : "Choose a photo"}
+                  </>
+                )}
+              </button>
+              <button type="button" style={{ ...styles.scanStartBtn, flex: 1 }} onClick={addBlankPhotoItem}>
+                <Plus size={15} strokeWidth={2} style={{ marginRight: 6 }} />
+                Add ingredient
+              </button>
+            </div>
             {photoScanNote && <p style={styles.barcodeHint}>{photoScanNote}</p>}
 
             {photoItems.length > 0 && (
@@ -5840,11 +5907,14 @@ export default function App() {
                               </div>
                             </>
                           )}
-                          {!item.searching && (!item.candidates || item.candidates.length === 0) && (
+                          {item.searched && !item.searching && (!item.candidates || item.candidates.length === 0) && (
                             <p style={styles.barcodeHint}>
                               Nothing found for "{item.rawName}" — try changing the name above and search again, or
                               remove this item.
                             </p>
+                          )}
+                          {!item.searched && !item.searching && (
+                            <p style={styles.barcodeHint}>Type an ingredient name above, then "Find match".</p>
                           )}
                         </>
                       )}
