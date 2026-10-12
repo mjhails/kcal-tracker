@@ -81,7 +81,7 @@ const USDA_API_KEY = "DEMO_KEY";
 // If you leave the placeholder in place, the "Daily reminder" toggle in
 // Settings stays disabled with an explanation, and nothing else breaks.
 // ---------------------------------------------------------------------------
-const VAPID_PUBLIC_KEY = "YOUR_VAPID_PUBLIC_KEY";
+const VAPID_PUBLIC_KEY = "BF4uQadfExhT1JvZJZmMuxLSetwaJ8mcD5KFKGGss5m7fp4k1zS_cbsXxj11KjGFnwjppTwgcDEYAh1n83rVO30";
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
