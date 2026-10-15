@@ -15,7 +15,17 @@ function Logo({ size = 38 }) {
         fill="none"
         opacity="0.92"
       />
-      <circle cx="20" cy="20" r="4.5" fill="#FFFFFF" />
+      {/* Fork + knife in place of the old plain dot — same mark as the home screen icon,
+          scaled down from its 100-unit design (×0.4) to this viewBox. */}
+      <g fill="#FFFFFF">
+        <rect x="14.64" y="13.6" width="0.72" height="4" rx="0.36" />
+        <rect x="16.04" y="13.6" width="0.72" height="4" rx="0.36" />
+        <rect x="17.44" y="13.6" width="0.72" height="4" rx="0.36" />
+        <rect x="14.4" y="17.2" width="4" height="1.6" rx="0.6" />
+        <rect x="15.7" y="18.4" width="1.4" height="7.6" rx="0.7" />
+        <path d="M24.4 12.8 L24.6 19.2 L22.6 19.2 C22 16.8 22.8 14.4 24.4 12.8 Z" />
+        <rect x="22.9" y="19.2" width="1.4" height="6.8" rx="0.7" />
+      </g>
     </svg>
   );
 }
