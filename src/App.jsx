@@ -36,6 +36,7 @@ import {
   Smartphone,
   User,
   ShoppingCart,
+  Pencil,
 } from "lucide-react";
 import {
   auth,
@@ -1531,6 +1532,10 @@ export default function App() {
   const [photoMealName, setPhotoMealName] = useState("");
   const [photoMealServings, setPhotoMealServings] = useState(1);
   const [photoMealGroup, setPhotoMealGroup] = useState("dinner");
+  // Set when this same modal was opened via the Library's edit (pencil) button
+  // instead of "Create a meal" — saveMealFromPhoto then updates that recipe in
+  // place instead of adding a new one.
+  const [editingRecipeId, setEditingRecipeId] = useState(null);
   const [barcodeMode, setBarcodeMode] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
   const [barcodeLoading, setBarcodeLoading] = useState(false);
@@ -2955,6 +2960,14 @@ export default function App() {
     return cleaned.length >= 3 ? cleaned : name;
   }
 
+  // Aldi's own-brand items are almost always printed under a completely different
+  // brand name on the pack — Bramwells, Ashfields, Brooklea, The Deli, Harvest
+  // Morn — rather than "Aldi" itself, so an OpenFoodFacts listing for "Bramwells
+  // Burger Sauce" shares no words at all with someone typing "Aldi Burger Sauce".
+  // Stripping "Aldi" off and searching again catches that regardless of which of
+  // Aldi's many sub-brands the real product turns out to be under.
+  const ALDI_PREFIX = /^aldi\s+/i;
+
   // matchRank (what the search box uses) requires every word *in the query* to
   // match something — right for a short, deliberate search, wrong here: an OCR'd
   // ingredient line reads like "Green Beans, Boiled or Steamed" or "Chicken Breast
@@ -3038,10 +3051,24 @@ export default function App() {
     if (confident) {
       return { status: "matched", chosen: localCandidates[0], candidates: localCandidates };
     }
+    const simplified = simplifyForOnlineSearch(name);
+    const onlineQueries = [simplified];
+    if (ALDI_PREFIX.test(simplified)) {
+      const withoutAldi = simplified.replace(ALDI_PREFIX, "").trim();
+      if (withoutAldi.length >= 3) onlineQueries.push(withoutAldi);
+    }
     let onlineResults = [];
     try {
-      const r = await searchOpenFoodFactsText(simplifyForOnlineSearch(name));
-      onlineResults = r.results || [];
+      const searches = await Promise.all(onlineQueries.map((q) => searchOpenFoodFactsText(q)));
+      const seenOnline = new Set();
+      for (const r of searches) {
+        for (const p of r.results || []) {
+          const key = p.name.toLowerCase();
+          if (seenOnline.has(key)) continue;
+          seenOnline.add(key);
+          onlineResults.push(p);
+        }
+      }
     } catch (e) {
       onlineResults = [];
     }
@@ -3062,11 +3089,43 @@ export default function App() {
     setPhotoMealName("");
     setPhotoMealServings(1);
     setPhotoMealGroup(defaultMealForNow());
+    setEditingRecipeId(null);
     setShowCreateMealPhoto(true);
   }
 
   function closeCreateMealPhoto() {
     setShowCreateMealPhoto(false);
+    setEditingRecipeId(null);
+  }
+
+  // Reopens a saved custom recipe in the same photo/manual-entry editor, so an
+  // ingredient that didn't match first time round (and so never made it into the
+  // saved recipe at all — unmatched rows are dropped on save, not saved broken)
+  // can be searched for again or added fresh, rather than rebuilding the whole
+  // meal from scratch.
+  function openEditRecipe(r) {
+    setPhotoScanNote("");
+    setPhotoMealName(r.name);
+    setPhotoMealServings(r.servings || 1);
+    setPhotoMealGroup(r.defaultMeal || defaultMealForNow());
+    setEditingRecipeId(r.id);
+    setPhotoItems(
+      r.items.map((it) => {
+        const food = findFood(it.food, customFoods);
+        return {
+          rawName: it.food,
+          grams: it.grams,
+          weightUnclear: false,
+          status: food ? "matched" : "unmatched",
+          chosen: food || null,
+          candidates: food ? [food] : [],
+          editing: !food,
+          searching: false,
+          searched: !!food,
+        };
+      })
+    );
+    setShowCreateMealPhoto(true);
   }
 
   async function handleMealPhoto(file) {
@@ -3211,16 +3270,20 @@ export default function App() {
     });
     if (nextCustomFoods !== customFoods) saveCustomFoods(nextCustomFoods);
 
-    const newRecipe = {
-      id: uid(),
+    const recipeFields = {
       name: photoMealName.trim(),
       defaultMeal: photoMealGroup,
       mine: true,
       servings: Math.max(1, parseFloat(photoMealServings) || 1),
       items: recipeItems,
     };
-    saveCustomRecipes([...customRecipes, newRecipe]);
+    if (editingRecipeId) {
+      saveCustomRecipes(customRecipes.map((r) => (r.id === editingRecipeId ? { ...r, ...recipeFields } : r)));
+    } else {
+      saveCustomRecipes([...customRecipes, { id: uid(), ...recipeFields }]);
+    }
     setShowCreateMealPhoto(false);
+    setEditingRecipeId(null);
   }
 
   // Tesseract is trained on dark text over a light page and reads pale/white text on
@@ -4362,13 +4425,22 @@ export default function App() {
                         </span>
                       </button>
                       {r.mine && (
-                        <button
-                          style={styles.trashBtn}
-                          onClick={() => deleteCustomRecipe(r.id)}
-                          aria-label={`Delete ${r.name}`}
-                        >
-                          <Trash2 size={15} strokeWidth={1.75} />
-                        </button>
+                        <>
+                          <button
+                            style={styles.trashBtn}
+                            onClick={() => openEditRecipe(r)}
+                            aria-label={`Edit ${r.name}`}
+                          >
+                            <Pencil size={15} strokeWidth={1.75} />
+                          </button>
+                          <button
+                            style={styles.trashBtn}
+                            onClick={() => deleteCustomRecipe(r.id)}
+                            aria-label={`Delete ${r.name}`}
+                          >
+                            <Trash2 size={15} strokeWidth={1.75} />
+                          </button>
+                        </>
                       )}
                     </div>
                   ))}
@@ -5815,16 +5887,16 @@ export default function App() {
         <div style={styles.overlay} className="overlay-anim" onClick={closeCreateMealPhoto}>
           <div style={styles.sheet} className="sheet-anim" onClick={(ev) => ev.stopPropagation()}>
             <div style={styles.sheetHeader}>
-              <span style={styles.sheetTitle}>Create a meal</span>
+              <span style={styles.sheetTitle}>{editingRecipeId ? "Edit meal" : "Create a meal"}</span>
               <button style={styles.iconBtn} onClick={closeCreateMealPhoto}>
                 <X size={18} />
               </button>
             </div>
 
             <p style={styles.barcodeHint}>
-              Upload a photo or screenshot of a meal's ingredient list (another app's diary entry, a recipe card,
-              your own notes), or add each ingredient yourself below — either way, you check or correct anything
-              before it's saved.
+              {editingRecipeId
+                ? "Search again for anything that didn't match, or add an ingredient that's missing entirely — nothing saves until every row is either a confirmed match or removed."
+                : "Upload a photo or screenshot of a meal's ingredient list (another app's diary entry, a recipe card, your own notes), or add each ingredient yourself below — either way, you check or correct anything before it's saved."}
             </p>
 
             <input
@@ -6031,7 +6103,7 @@ export default function App() {
                   }
                   onClick={saveMealFromPhoto}
                 >
-                  Save meal
+                  {editingRecipeId ? "Save changes" : "Save meal"}
                 </button>
               </>
             )}
