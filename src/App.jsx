@@ -1536,6 +1536,14 @@ export default function App() {
   // instead of "Create a meal" — saveMealFromPhoto then updates that recipe in
   // place instead of adding a new one.
   const [editingRecipeId, setEditingRecipeId] = useState(null);
+  // Scanning a barcode for one ingredient row in the create/edit-meal screen —
+  // a fallback for when online text search can't find a product by name (its
+  // own camera pipeline, separate from the Add-food barcode scanner below, so
+  // this one can't be opened over the other and neither has to know about it).
+  const [scanningForIndex, setScanningForIndex] = useState(null);
+  const [photoScanError, setPhotoScanError] = useState("");
+  const [photoScanHint, setPhotoScanHint] = useState("");
+  const photoScanVideoRef = useRef(null);
   const [barcodeMode, setBarcodeMode] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
   const [barcodeLoading, setBarcodeLoading] = useState(false);
@@ -3154,6 +3162,7 @@ export default function App() {
   function closeCreateMealPhoto() {
     setShowCreateMealPhoto(false);
     setEditingRecipeId(null);
+    setScanningForIndex(null);
   }
 
   // Reopens a saved custom recipe in the same photo/manual-entry editor, so an
@@ -3294,6 +3303,132 @@ export default function App() {
       )
     );
   }
+
+  function startPhotoItemScan(index) {
+    setPhotoScanError("");
+    if (!cameraSupported) {
+      setPhotoScanError("Camera scanning isn't supported in this browser.");
+      return;
+    }
+    setScanningForIndex(index);
+  }
+
+  function stopPhotoItemScan() {
+    setScanningForIndex(null);
+  }
+
+  // Looks up a scanned barcode directly — bypasses name search entirely, so it
+  // still works for an ingredient like an own-brand sauce that online text
+  // search can't find a match for (or when that search is unreachable).
+  async function lookupBarcodeForPhotoItem(index, code) {
+    setPhotoItems((prev) => prev.map((it, i) => (i === index ? { ...it, searching: true } : it)));
+    const localMatch =
+      customFoods.find((f) => f.barcode && f.barcode === code) || FOOD_DB.find((f) => f.barcode && f.barcode === code);
+    const found = localMatch || (await fetchOpenFoodFacts(code)) || (await fetchUSDA(code));
+    setPhotoItems((prev) =>
+      prev.map((it, i) =>
+        i === index
+          ? found
+            ? { ...it, status: "matched", chosen: found, candidates: [found], editing: false, searching: false, searched: true }
+            : { ...it, status: "unmatched", candidates: [], editing: true, searching: false, searched: true }
+          : it
+      )
+    );
+  }
+
+  // Runs only while scanningForIndex is set — its own camera + ZXing pipeline,
+  // separate from the Add-food barcode scanner's (videoRef/trackRef/readerRef
+  // above), so scanning for one ingredient row can't interfere with the other
+  // scanner's state if both happened to be touched in the same session.
+  useEffect(() => {
+    if (scanningForIndex === null) return;
+    let cancelled = false;
+    let stream = null;
+    let controlsLocal = null;
+    setPhotoScanHint("");
+    const stuckTimer = setTimeout(() => {
+      if (!cancelled) setPhotoScanHint("Still searching — try moving closer, holding steady, or cancel and search by name instead.");
+    }, 8000);
+
+    (async () => {
+      try {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              advanced: [{ focusMode: "continuous" }],
+            },
+          });
+        } catch (e) {
+          if (cancelled) return;
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        }
+        if (cancelled || !photoScanVideoRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        const video = photoScanVideoRef.current;
+        video.srcObject = stream;
+        video.setAttribute("playsinline", "true");
+        await video.play();
+        if (cancelled) return;
+
+        const [{ BrowserMultiFormatReader }, { DecodeHintType, BarcodeFormat }] = await Promise.all([
+          import("@zxing/browser"),
+          import("@zxing/library"),
+        ]);
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.ITF,
+        ]);
+        hints.set(DecodeHintType.TRY_HARDER, true);
+        const codeReader = new BrowserMultiFormatReader(hints, {
+          delayBetweenScanAttempts: 100,
+          delayBetweenScanSuccess: 500,
+        });
+        const targetIndex = scanningForIndex;
+        const controls = await codeReader.decodeFromVideoElement(video, (result) => {
+          if (result && !cancelled) {
+            const value = result.getText();
+            setScanningForIndex(null);
+            lookupBarcodeForPhotoItem(targetIndex, value);
+          }
+        });
+        if (cancelled) {
+          controls.stop();
+          return;
+        }
+        controlsLocal = controls;
+      } catch (e) {
+        // Leave the overlay open so the error is actually readable — closing it
+        // here (the way the effect's own cleanup eventually will) would unmount
+        // the paragraph showing it in the same instant it appears.
+        if (!cancelled) setPhotoScanError("Couldn't access the camera — check permissions, or search by name instead.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(stuckTimer);
+      setPhotoScanHint("");
+      if (controlsLocal) {
+        try {
+          controlsLocal.stop();
+        } catch (e) {
+          /* already stopped */
+        }
+      }
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+      if (photoScanVideoRef.current) photoScanVideoRef.current.srcObject = null;
+    };
+  }, [scanningForIndex]);
 
   // Saves whichever candidate was chosen (or confidently auto-matched) for every
   // item as a real recipe — any ingredient that came from an online match and isn't
@@ -6062,6 +6197,16 @@ export default function App() {
                             >
                               {item.searching ? "Searching…" : "Find match"}
                             </button>
+                            {cameraSupported && (
+                              <button
+                                style={{ ...styles.secondaryBtnSmall, ...(item.searching ? { opacity: 0.6 } : {}) }}
+                                disabled={item.searching}
+                                onClick={() => startPhotoItemScan(i)}
+                              >
+                                <Barcode size={14} style={{ marginRight: 4, verticalAlign: "-2px" }} />
+                                Scan barcode
+                              </button>
+                            )}
                             {item.chosen && (
                               <button style={styles.customLink} onClick={() => togglePhotoItemEditing(i)}>
                                 Cancel
@@ -6170,6 +6315,40 @@ export default function App() {
                   onClick={saveMealFromPhoto}
                 >
                   {editingRecipeId ? "Save changes" : "Save meal"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Camera overlay for scanning a barcode against one ingredient row in the
+          create/edit-meal screen above — a fallback for when online text search
+          can't find a product by name (or can't be reached at all). */}
+      {scanningForIndex !== null && (
+        <div style={styles.overlay} className="overlay-anim" onClick={stopPhotoItemScan}>
+          <div style={styles.sheet} className="sheet-anim" onClick={(ev) => ev.stopPropagation()}>
+            <div style={styles.sheetHeader}>
+              <span style={styles.sheetTitle}>Scan a barcode</span>
+              <button style={styles.iconBtn} onClick={stopPhotoItemScan}>
+                <X size={18} />
+              </button>
+            </div>
+            {!photoScanError && (
+              <div style={styles.scanFrame}>
+                <video ref={photoScanVideoRef} style={styles.scanVideo} muted playsInline />
+                <div style={styles.scanReticle} />
+                <button style={styles.scanCancelBtn} onClick={stopPhotoItemScan}>
+                  Cancel scan
+                </button>
+              </div>
+            )}
+            {photoScanHint && !photoScanError && <p style={styles.barcodeHint}>{photoScanHint}</p>}
+            {photoScanError && (
+              <>
+                <p style={styles.scanError}>{photoScanError}</p>
+                <button style={styles.secondaryBtn} onClick={stopPhotoItemScan}>
+                  Close
                 </button>
               </>
             )}
