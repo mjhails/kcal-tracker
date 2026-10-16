@@ -2854,13 +2854,14 @@ export default function App() {
 
   // Best-effort extraction of an ingredient list (name + weight per line) from a
   // photo of a meal breakdown — e.g. a screenshot of another app's diary entry, like
-  // the one this feature was built from. Most such screens show each item as two
-  // lines: the food's name, then a portion description ending in its weight
-  // ("Medium fillet (120g)", "100g", "1/4 Jar (48g)") — this pairs each weight line
-  // with the nearest preceding line that reads like a name, skipping section headers
-  // (meal names) and summary rows (a line that's just numbers). Nothing here is
-  // trusted outright — every item still goes through ingredient matching and a
-  // review screen before anything is saved.
+  // the one this feature was built from. Two source formats both show up in
+  // practice: a simple two-line "food name" / "portion (120g)" pair, and a denser
+  // bulleted export where EACH ingredient is its own single (often word-wrapped)
+  // line like "6x Wrap Aldi Village Bakery 8 Mini White Tortilla Wraps 248g" —
+  // quantity, brand and product all run together, and OCR emits each wrapped
+  // visual line separately even though they're one logical ingredient. Nothing
+  // here is trusted outright — every item still goes through ingredient matching
+  // and a review screen before anything is saved.
   function parseIngredientListText(text) {
     const norm = text.replace(/\r/g, "\n").replace(/\bO(?=\s*g\b)/g, "0");
     const lines = norm
@@ -2868,13 +2869,15 @@ export default function App() {
       .map((l) => l.trim())
       .filter(Boolean);
 
-    const mealHeaderWords = /^(breakfast|lunch|dinner|snacks?|drinks?)$/i;
-    const weightPattern = /(\d+(?:\.\d+)?)\s*g\b/i;
+    const mealHeaderWords = /^(breakfast|lunch|dinner|snacks?|drinks?|ingredients\b.*)$/i;
+    const weightPattern = /(\d+(?:\.\d+)?)\s*(g|ml)\b/i;
+    const weightPatternAll = /(\d+(?:\.\d+)?)\s*(g|ml)\b/gi;
     const summaryRow = /^\d+(\.\d+)?\s+\d/; // e.g. "515  22.9" — a running kcal/macro total, not a food
 
     // A line that's essentially just the portion/weight itself ("Medium fillet
-    // (120g)", "100g") rather than a food name with a weight tacked on.
-    const isPortionOnly = (l) => {
+    // (120g)", "100g") rather than a food name with a weight tacked on — this
+    // closes out whatever ingredient is currently being accumulated below.
+    const isClosingWeight = (l) => {
       const m = l.match(weightPattern);
       if (!m) return false;
       return l.replace(weightPattern, "").trim().length <= 20;
@@ -2886,7 +2889,7 @@ export default function App() {
     // the line to actually BE letters, plus at least one real 3+ letter word, is
     // what separates "Green Beans, Boiled" from that kind of garbled noise.
     const looksLikeName = (l) => {
-      if (l.length < 3 || l.length > 70) return false;
+      if (l.length < 3 || l.length > 90) return false;
       if (mealHeaderWords.test(l) || summaryRow.test(l)) return false;
       const letters = (l.match(/[a-z]/gi) || []).length;
       const nonSpace = l.replace(/\s/g, "").length;
@@ -2899,51 +2902,99 @@ export default function App() {
     // letter-"g" for weightPattern to find, but it's still obviously a portion
     // line, not a food name: a bare 2-4 digit line, or a parenthesised group of
     // 1-4 digits with no unit letter next to it (e.g. "Medium portion (909)").
-    // Letting looksLikeName catch these instead (which it otherwise would, since
-    // "Medium portion" reads as real words) was overwriting whatever real name
-    // was still pending — silently dropping that ingredient entirely.
     const bareDigitLine = /^\d{2,4}$/;
     const garbledWeightParen = /\(\s*\d{1,4}\s*\)/;
     const looksLikeGarbledWeight = (l) => bareDigitLine.test(l) || (garbledWeightParen.test(l) && !weightPattern.test(l));
 
+    // A bulleted-export ingredient's OWN line (not a wrapped continuation of the
+    // previous one) reliably starts with some kind of quantity — "6x Wrap...",
+    // "1/2 Pack (65g)...", "½x Tablespoon...", "20g Serving...", "serving
+    // contains...". A wrapped continuation ("White Tortilla Wraps 248g") starts
+    // with an ordinary word instead, so it's told apart from a fresh item even
+    // though it isn't marked any other way.
+    // Tesseract substitutes all sorts of characters for a bullet point depending
+    // on the font/scale — confirmed seeing "•", "+", and "«" all for the same
+    // glyph across different scans. Rather than enumerate every possibility,
+    // strip ANY short run of leading symbol characters followed by whitespace —
+    // genuine content never starts that way (a line starting "(drained)..." has
+    // a letter right after the "(", not whitespace, so it's untouched).
+    const BULLET_GLYPH = /^[^\sA-Za-z0-9½¼¾]{1,3}\s+/;
+    const NEW_ITEM_START = /^(\d+(\.\d+)?\s*x\b|½x\b|¼x\b|¾x\b|\d+\/\d+\s*x?\b|\d+(\.\d+)?\s*(g|ml)\b|serving\b)/i;
+    const startsNewItem = (line) => NEW_ITEM_START.test(line.replace(BULLET_GLYPH, ""));
+
+    // Strips the leading "how much of this" clause this export format puts
+    // before the actual brand/product name — "6x Wrap ", "1/2 Pack (65g) ",
+    // "½x Tablespoon (10g) ", "20g Serving ", "serving contains " — plus any
+    // parenthesised reference weight left over elsewhere in the line (a
+    // per-unit figure like "(30g)" for one tomato, not the ingredient's own
+    // total, which is extracted separately from the end of the whole line).
+    const stripLeadingQuantityClause = (text) => {
+      let s = text;
+      s = s.replace(/^(\d+(\.\d+)?x|\d+\/\d+x?|½x|¼x|¾x)\s+/i, "");
+      s = s.replace(/^serving\s+contains\s+/i, "");
+      s = s.replace(/^\d+(\.\d+)?\s*(g|ml)\s+(?=[a-z])/i, "");
+      s = s.replace(/\(\s*\d+(\.\d+)?\s*(g|ml)\s*\)/gi, "");
+      s = s.replace(/\(\s*\)/g, "");
+      return s.replace(/\s{2,}/g, " ").trim();
+    };
+
     const items = [];
-    let pendingName = null;
     let skippedCount = 0;
-    for (const line of lines) {
-      if (isPortionOnly(line)) {
-        const m = line.match(weightPattern);
-        if (pendingName) {
-          items.push({ name: pendingName, grams: parseFloat(m[1]) });
-          pendingName = null;
-        } else {
-          skippedCount++; // a weight with no readable name before it — drop it rather than guess
-        }
-        continue;
+    let group = []; // raw lines accumulated for the ingredient currently being built
+
+    function flushGroup() {
+      if (group.length === 0) return;
+      const full = group.join(" ");
+      const matches = [...full.matchAll(weightPatternAll)];
+      let grams = null;
+      let withoutWeight = full;
+      let weightUnclear = true;
+      if (matches.length > 0) {
+        // The LAST weight in the (possibly multi-line) group is the real
+        // total — an earlier one is typically a per-unit reference weight
+        // embedded in the quantity clause ("2x Tomato (30g) Aldi Nature's
+        // Pick Sweet Vine Ripened Tomatoes 255g" — 30g is one tomato, 255g
+        // is the actual amount).
+        const last = matches[matches.length - 1];
+        grams = parseFloat(last[1]);
+        withoutWeight = full.slice(0, last.index) + full.slice(last.index + last[0].length);
+        weightUnclear = false;
       }
+      const name = stripLeadingQuantityClause(withoutWeight).replace(/[.…]{2,}$/, "").trim();
+      if (name.length >= 2) {
+        items.push({ name, grams: grams != null ? grams : 100, weightUnclear });
+      } else {
+        skippedCount++;
+      }
+      group = [];
+    }
+
+    for (const rawLine of lines) {
+      const line = rawLine.replace(BULLET_GLYPH, "");
+      if (mealHeaderWords.test(line) || summaryRow.test(line)) continue;
+
       if (looksLikeGarbledWeight(line)) {
-        if (pendingName) {
-          // We know there was a portion here but can't trust the misread number —
-          // keep the ingredient (with a default weight to adjust) rather than
-          // lose it outright; the review screen already asks to check every amount.
-          items.push({ name: pendingName, grams: 100, weightUnclear: true });
-          pendingName = null;
-        } else {
-          skippedCount++;
-        }
+        // Couldn't trust the misread number, but something was clearly there —
+        // flush whatever's accumulated so far (falls back to the 100g/unclear
+        // marker) rather than let it silently vanish along with this line.
+        if (group.length > 0) flushGroup();
+        else skippedCount++;
         continue;
       }
-      const inlineWeight = line.match(weightPattern);
-      const nameOnly = line.replace(weightPattern, "").replace(/[()]/g, "").trim();
-      if (inlineWeight && looksLikeName(nameOnly)) {
-        // Name and weight both on one line ("Cherry Tomatoes, Fresh 100g").
-        items.push({ name: nameOnly, grams: parseFloat(inlineWeight[1]) });
-        pendingName = null;
-        continue;
-      }
-      if (looksLikeName(line)) {
-        pendingName = line.replace(/[.…]{2,}$/, "").trim(); // drop a truncated name's trailing "..."
+      if (isClosingWeight(line)) {
+        group.push(line);
+        flushGroup();
+      } else if (startsNewItem(rawLine)) {
+        flushGroup(); // a new bulleted item starting mid-accumulation — finish the last one first
+        group = [line];
+      } else if (looksLikeName(line)) {
+        group.push(line); // continuation of whatever's being accumulated (or a fresh name-only line)
+      } else if (group.length === 0) {
+        skippedCount++;
       }
     }
+    flushGroup();
+
     return { items, skippedCount };
   }
 
@@ -3058,8 +3109,13 @@ export default function App() {
       if (withoutAldi.length >= 3) onlineQueries.push(withoutAldi);
     }
     let onlineResults = [];
+    let searchFailed = false;
     try {
       const searches = await Promise.all(onlineQueries.map((q) => searchOpenFoodFactsText(q)));
+      // If every query came back "failed" (OFF unreachable, not just empty),
+      // say so — "nothing found" implies the item genuinely isn't out there,
+      // which isn't true when we never actually managed to check.
+      searchFailed = searches.length > 0 && searches.every((r) => r.failed);
       const seenOnline = new Set();
       for (const r of searches) {
         for (const p of r.results || []) {
@@ -3071,6 +3127,7 @@ export default function App() {
       }
     } catch (e) {
       onlineResults = [];
+      searchFailed = true;
     }
     const merged = [...localCandidates];
     const seen = new Set(merged.map((c) => c.name.toLowerCase()));
@@ -3080,7 +3137,8 @@ export default function App() {
       merged.push(p);
       if (merged.length >= 5) break;
     }
-    return { status: merged.length > 0 ? "ambiguous" : "unmatched", chosen: null, candidates: merged };
+    const status = merged.length > 0 ? "ambiguous" : searchFailed ? "search_failed" : "unmatched";
+    return { status, chosen: null, candidates: merged };
   }
 
   function openCreateMealPhoto() {
@@ -6037,12 +6095,20 @@ export default function App() {
                               </div>
                             </>
                           )}
-                          {item.searched && !item.searching && (!item.candidates || item.candidates.length === 0) && (
-                            <p style={styles.barcodeHint}>
-                              Nothing found for "{item.rawName}" — try changing the name above and search again, or
-                              remove this item.
-                            </p>
-                          )}
+                          {item.searched &&
+                            !item.searching &&
+                            (!item.candidates || item.candidates.length === 0) &&
+                            (item.status === "search_failed" ? (
+                              <p style={styles.barcodeHint}>
+                                Couldn't reach the online food search just now — try "Find match" again in a minute
+                                or two, or add "{item.rawName}" manually with its own nutrition info.
+                              </p>
+                            ) : (
+                              <p style={styles.barcodeHint}>
+                                Nothing found for "{item.rawName}" — try changing the name above and search again, or
+                                remove this item.
+                              </p>
+                            ))}
                           {!item.searched && !item.searching && (
                             <p style={styles.barcodeHint}>Type an ingredient name above, then "Find match".</p>
                           )}
